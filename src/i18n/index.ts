@@ -5,6 +5,7 @@ import type { Lang } from '../types';
 import { en } from './en';
 import { fr } from './fr';
 import { learnEn, learnFr } from './learn';
+import { screensEn, screensFr } from './screens';
 
 export function deviceLang(): Lang {
   return getLocales()[0]?.languageCode === 'fr' ? 'fr' : 'en';
@@ -13,8 +14,8 @@ export function deviceLang(): Lang {
 if (!i18n.isInitialized) {
   void i18n.use(initReactI18next).init({
     resources: {
-      en: { translation: { ...en, ...learnEn } },
-      fr: { translation: { ...fr, ...learnFr } },
+      en: { translation: { ...en, ...learnEn, ...screensEn } },
+      fr: { translation: { ...fr, ...learnFr, ...screensFr } },
     },
     lng: deviceLang(),
     fallbackLng: 'en',
