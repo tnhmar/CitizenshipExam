@@ -1,0 +1,2 @@
+export const focusEn = { focusUi: { questions: `Questions`, close: `Close`, actions: `Exam actions`, review: `Review`, overviewHint: `Tap a number to jump to that question. The timer keeps running.` } };
+export const focusFr: typeof focusEn = { focusUi: { questions: `Questions`, close: `Fermer`, actions: `Actions de l'examen`, review: `Revoir`, overviewHint: `Touchez un numéro pour ouvrir la question. Le minuteur continue.` } };

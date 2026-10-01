@@ -15,10 +15,7 @@
     "lint": "eslint .",
     "test": "jest"
   },
-  "jest": {
-    "preset": "jest-expo",
-    "testPathIgnorePatterns": ["/node_modules/", "/android/", "/ios/"]
-  },
+  "jest": { "preset": "jest-expo", "testPathIgnorePatterns": ["/node_modules/", "/android/", "/ios/"] },
   "dependencies": {
     "@react-native-async-storage/async-storage": "*",
     "expo": "~56.0.0",
@@ -26,6 +23,7 @@
     "expo-constants": "*",
     "expo-linking": "*",
     "expo-localization": "*",
+    "expo-notifications": "~56.0.16",
     "expo-router": "~56.2.3",
     "expo-speech": "*",
     "expo-splash-screen": "*",

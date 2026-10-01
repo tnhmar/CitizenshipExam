@@ -99,4 +99,7 @@ export interface ExamAttempt {
   finishedAt: number | null;
   limitMs: number;
   answers: Answer[];
+  flags?: number[];
+  cursor?: number;
+  spent?: Record<number, number>;
 }

@@ -40,18 +40,11 @@ export const fr: typeof en = {
     examDate: `Date de l'examen (AAAA-MM-JJ)`,
     dailyGoal: `Objectif d'étude quotidien`,
     reduceMotion: `Réduire les animations`,
-    lockChapters: `Verrouiller les chapitres tant que le précédent n'est pas terminé`,
     reset: `Réinitialiser ma progression`,
     resetTitle: `Réinitialiser la progression ?`,
     resetBody: `Les leçons lues, les résultats de quiz, l'historique des examens et les cartes de révision seront effacés de cet appareil.`,
     privacy: `Confidentialité`,
     privacyBody: `Aucun compte, aucune publicité, aucune analyse. Tout reste sur cet appareil.`,
     version: `Version`,
-  },
-  stubs: {
-    learn: `{{chapters}} chapitres et {{lessons}} leçons sont chargés.`,
-    exams: `{{exams}} examens d'entraînement sont chargés.`,
-    review: `Révision par répétition espacée.`,
-    progress: `Vos statistiques apparaîtront ici.`,
   },
 };
