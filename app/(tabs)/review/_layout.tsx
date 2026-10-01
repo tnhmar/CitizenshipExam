@@ -6,6 +6,7 @@ export default function ReviewLayout() {
   return (
     <Stack>
       <Stack.Screen name='index' options={{ title: t('tabs.review') }} />
+      <Stack.Screen name='session' options={{ title: t('tabs.review'), animation: 'slide_from_bottom', gestureEnabled: false }} />
     </Stack>
   );
 }
