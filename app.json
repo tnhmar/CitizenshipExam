@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Citizenship Exam",
+    "slug": "citizenship-exam",
+    "scheme": "citizenshipexam",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/generated/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": { "bundleIdentifier": "com.tnhmar.citizenshipexam", "supportsTablet": true },
+    "android": {
+      "package": "com.tnhmar.citizenshipexam",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/generated/adaptive-icon.png",
+        "backgroundColor": "#C22020"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        { "image": "./assets/generated/splash.png", "imageWidth": 200, "backgroundColor": "#C22020" }
+      ]
+    ]
+  }
+}
