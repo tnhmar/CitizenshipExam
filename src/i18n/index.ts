@@ -4,6 +4,7 @@ import { initReactI18next } from 'react-i18next';
 import type { Lang } from '../types';
 import { en } from './en';
 import { examEn, examFr } from './exam';
+import { focusEn, focusFr } from './focus';
 import { fr } from './fr';
 import { glossaryEn, glossaryFr } from './glossary';
 import { homeEn, homeFr } from './home';
@@ -19,8 +20,8 @@ if (!i18n.isInitialized) {
   // eslint-disable-next-line import/no-named-as-default-member
   void i18n.use(initReactI18next).init({
     resources: {
-      en: { translation: { ...en, ...learnEn, ...screensEn, ...uiEn, ...examEn, ...homeEn, ...moreEn, ...lessonEn, ...glossaryEn, ...remindersEn } },
-      fr: { translation: { ...fr, ...learnFr, ...screensFr, ...uiFr, ...examFr, ...homeFr, ...moreFr, ...lessonFr, ...glossaryFr, ...remindersFr } },
+      en: { translation: { ...en, ...learnEn, ...screensEn, ...uiEn, ...examEn, ...homeEn, ...moreEn, ...lessonEn, ...glossaryEn, ...remindersEn, ...focusEn } },
+      fr: { translation: { ...fr, ...learnFr, ...screensFr, ...uiFr, ...examFr, ...homeFr, ...moreFr, ...lessonFr, ...glossaryFr, ...remindersFr, ...focusFr } },
     },
     lng: deviceLang(), fallbackLng: 'en', interpolation: { escapeValue: false },
   });

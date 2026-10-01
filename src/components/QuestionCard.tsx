@@ -8,9 +8,8 @@ import type { Presented } from '../types';
 import { BookmarkButton } from './BookmarkButton';
 
 type OptionState = 'idle' | 'selected' | 'right' | 'wrong' | 'dim';
-interface OptionProps { index: number; text: string; state: OptionState; selected: boolean; disabled: boolean; onPress: () => void; }
-
-function Option({ index, text, state, selected, disabled, onPress }: OptionProps) {
+interface OptionProps { index: number; text: string; state: OptionState; selected: boolean; disabled: boolean; onPress: () => void; compact?: boolean; textSize?: number; }
+function Option({ index, text, state, selected, disabled, onPress, compact = false, textSize }: OptionProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const reduce = useSettings((s) => s.reduceMotion);
@@ -31,32 +30,31 @@ function Option({ index, text, state, selected, disabled, onPress }: OptionProps
   const mark = state === 'right' ? '✓' : state === 'wrong' ? '✗' : String.fromCharCode(65 + index);
   const label = state === 'right' ? `${text}, ${t('quiz.correct')}` : state === 'wrong' ? `${text}, ${t('quiz.incorrect')}` : text;
   return <Animated.View style={{ transform: [{ translateX: shake }, { scale: pulse }] }}>
-    <Pressable accessibilityRole='button' accessibilityLabel={label} accessibilityState={{ selected, disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.option, { backgroundColor: bg, borderColor: state === 'idle' || state === 'dim' ? theme.colors.outlineVariant : feedback, borderWidth: state === 'idle' || state === 'dim' ? 1.5 : 2.5 }, pressed && !disabled && styles.pressed]}>
-      <View style={[styles.badge, { backgroundColor: state === 'idle' || state === 'dim' ? theme.colors.surfaceVariant : feedback }]}><Text style={[styles.badgeText, { color: state === 'idle' || state === 'dim' ? theme.colors.onSurfaceVariant : theme.dark ? '#121318' : '#FFFFFF' }]}>{mark}</Text></View>
-      <Text variant='bodyLarge' style={styles.text}>{text}</Text>
+    <Pressable accessibilityRole='button' accessibilityLabel={label} accessibilityState={{ selected, disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.option, compact && styles.compactOption, { backgroundColor: bg, borderColor: state === 'idle' || state === 'dim' ? theme.colors.outlineVariant : feedback, borderWidth: state === 'idle' || state === 'dim' ? 1.5 : 2.5 }, pressed && !disabled && styles.pressed]}>
+      <View style={[styles.badge, compact && styles.compactBadge, { backgroundColor: state === 'idle' || state === 'dim' ? theme.colors.surfaceVariant : feedback }]}><Text style={[styles.badgeText, { color: state === 'idle' || state === 'dim' ? theme.colors.onSurfaceVariant : theme.dark ? '#121318' : '#FFFFFF' }]}>{mark}</Text></View>
+      <Text variant='bodyLarge' style={[styles.text, textSize ? { fontSize: textSize, lineHeight: textSize * 1.5 } : undefined]}>{text}</Text>
     </Pressable>
   </Animated.View>;
 }
-
-interface Props { presented: Presented; selected: number | null; reveal: boolean; onSelect: (index: number) => void; }
-export function QuestionCard({ presented, selected, reveal, onSelect }: Props) {
+interface Props { presented: Presented; selected: number | null; reveal: boolean; onSelect: (index: number) => void; showBookmark?: boolean; compact?: boolean; textSize?: number; }
+export function QuestionCard({ presented, selected, reveal, onSelect, showBookmark = true, compact = false, textSize }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const { question, options, correctIndex } = presented;
   const success = theme.dark ? '#8DCB91' : palette.success;
   const danger = theme.dark ? '#FFB4AB' : palette.danger;
-  return <View style={styles.wrap}>
-    <View style={[styles.questionBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
-      <View style={styles.tools}><BookmarkButton question={question} /></View>
-      <Text variant='titleLarge' style={styles.question}>{question.text}</Text>
+  return <View style={[styles.wrap, compact && { gap: 10 }]}>
+    <View style={[styles.questionBox, { backgroundColor: compact ? theme.colors.background : theme.colors.surface, borderColor: theme.colors.outlineVariant }, compact && styles.flatQuestion]}>
+      {showBookmark ? <View style={styles.tools}><BookmarkButton question={question} /></View> : null}
+      <Text variant='titleLarge' style={[styles.question, textSize ? { fontSize: textSize + 2, lineHeight: (textSize + 2) * 1.45 } : undefined]}>{question.text}</Text>
     </View>
     {options.map((opt, i) => {
       const state: OptionState = reveal ? i === correctIndex ? 'right' : i === selected ? 'wrong' : 'dim' : i === selected ? 'selected' : 'idle';
-      return <Option key={`${question.id}-${i}-${opt}`} index={i} text={opt} state={state} selected={i === selected} disabled={reveal} onPress={() => onSelect(i)} />;
+      return <Option key={`${question.id}-${i}-${opt}`} index={i} text={opt} state={state} selected={i === selected} disabled={reveal} onPress={() => onSelect(i)} compact={compact} textSize={textSize} />;
     })}
     {reveal && selected === correctIndex ? <Text accessibilityLiveRegion='polite' style={[styles.banner, { color: success }]}>{`✓ ${t('quiz.correct')}`}</Text> : null}
     {reveal && selected !== null && selected !== correctIndex ? <Text accessibilityLiveRegion='polite' style={[styles.banner, { color: danger }]}>{`✗ ${t('quiz.incorrect')}`}</Text> : null}
     {reveal && question.explanation ? <View style={[styles.explanation, { backgroundColor: theme.colors.primaryContainer }]}><Text variant='bodyMedium' style={{ color: theme.colors.onPrimaryContainer }}>{`💡 ${question.explanation}`}</Text></View> : null}
   </View>;
 }
-const styles = StyleSheet.create({ wrap: { gap: 12 }, questionBox: { borderRadius: 20, borderWidth: 1, padding: 18, gap: 12 }, tools: { flexDirection: 'row', justifyContent: 'flex-end' }, question: { fontWeight: '600' }, option: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 16 }, pressed: { opacity: 0.85 }, badge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }, badgeText: { fontWeight: '700', fontSize: 16 }, text: { flex: 1 }, banner: { fontSize: 18, fontWeight: '700' }, explanation: { borderRadius: 16, padding: 14 } });
+const styles = StyleSheet.create({ wrap: { gap: 12 }, questionBox: { borderRadius: 20, borderWidth: 1, padding: 18, gap: 12 }, flatQuestion: { borderWidth: 0, borderRadius: 0, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 8 }, tools: { flexDirection: 'row', justifyContent: 'flex-end' }, question: { fontWeight: '600' }, option: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 16 }, compactOption: { minHeight: 52, paddingVertical: 12, gap: 12 }, pressed: { opacity: 0.85 }, badge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }, compactBadge: { width: 28, height: 28, borderRadius: 14 }, badgeText: { fontWeight: '700', fontSize: 16 }, text: { flex: 1 }, banner: { fontSize: 18, fontWeight: '700' }, explanation: { borderRadius: 16, padding: 14 } });
