@@ -31,8 +31,10 @@ export default function RootLayout() {
   const scheme = useColorScheme();
   const hydrated = useHydrated();
   const lang = useSettings((s) => s.lang);
+  const mode = useSettings((s) => s.themeMode);
   const { t } = useTranslation();
-  const theme = scheme === 'dark' ? darkTheme : lightTheme;
+  const dark = mode === 'system' ? scheme === 'dark' : mode === 'dark';
+  const theme = dark ? darkTheme : lightTheme;
 
   useEffect(() => {
     if (lang) void i18n.changeLanguage(lang);

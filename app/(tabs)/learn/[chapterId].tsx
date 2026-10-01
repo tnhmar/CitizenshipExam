@@ -1,11 +1,11 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
 import { Bar } from '../../../src/components/Bar';
 import { Panel } from '../../../src/components/Panel';
-import { Screen } from '../../../src/components/Screen';
 import { getAudio } from '../../../src/content/audio';
+import { chapterCover } from '../../../src/content/covers';
 import { useBundle } from '../../../src/content/useBundle';
 import { deviceLang } from '../../../src/i18n';
 import { chapterQuizIds } from '../../../src/logic/quiz';
@@ -14,93 +14,9 @@ import { useSettings } from '../../../src/store/settings';
 import { palette } from '../../../src/theme';
 
 export default function ChapterScreen() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const theme = useTheme();
-  const { chapterId } = useLocalSearchParams<{ chapterId: string }>();
-  const bundle = useBundle();
-  const lang = useSettings((s) => s.lang) ?? deviceLang();
-  const lessonsRead = useProgress((s) => s.lessonsRead);
-  const quizResults = useProgress((s) => s.quizResults);
-
-  const chapter = bundle.chapters.find((c) => c.id === Number(chapterId));
-  if (!chapter) return null;
-
-  const count = chapter.lessonIds.length;
-  const read = chapter.lessonIds.filter((id) => lessonsRead[id]).length;
-  const nextId = chapter.lessonIds.find((id) => !lessonsRead[id]) ?? chapter.lessonIds[0];
-  const cta = read === 0 ? t('learnUi.startChapter') : read === count ? t('learnUi.reviewChapter') : t('learnUi.continueChapter');
-  const quizIds = chapterQuizIds(bundle, chapter);
-  const best = quizResults[`chapter:${chapter.id}`];
-
-  return (
-    <Screen>
-      <Stack.Screen options={{ title: chapter.title }} />
-      <Panel tone='primary'>
-        <Text variant='labelLarge' style={{ color: theme.colors.onPrimary }}>
-          {t('learnUi.chapter', { n: chapter.order })}
-        </Text>
-        <Text variant='headlineSmall' style={{ color: theme.colors.onPrimary, fontWeight: '700' }}>
-          {chapter.title}
-        </Text>
-        <Bar value={count > 0 ? read / count : 0} color='#FFFFFF' trackColor='rgba(255,255,255,0.3)' height={10} />
-        <Text variant='bodyMedium' style={{ color: theme.colors.onPrimary }}>
-          {t('learn.chapterProgress', { done: read, total: count })}
-        </Text>
-        {nextId !== undefined ? (
-          <Button mode='contained' buttonColor='#FFFFFF' textColor={theme.colors.primary} onPress={() => router.push(`/learn/lesson/${nextId}`)}>
-            {cta}
-          </Button>
-        ) : null}
-      </Panel>
-
-      <Text variant='titleMedium'>{t('learn.lessons')}</Text>
-      {chapter.lessonIds.map((id, i) => {
-        const lesson = bundle.lessons.find((l) => l.id === id);
-        if (!lesson) return null;
-        const isRead = Boolean(lessonsRead[id]);
-        const result = quizResults[`lesson:${id}`];
-        return (
-          <Panel key={id} onPress={() => router.push(`/learn/lesson/${id}`)}>
-            <View style={styles.row}>
-              <View style={[styles.badge, { backgroundColor: isRead ? palette.success : theme.colors.surfaceVariant }]}>
-                <Text style={{ color: isRead ? '#FFFFFF' : theme.colors.onSurfaceVariant, fontWeight: '700' }}>{isRead ? '✓' : i + 1}</Text>
-              </View>
-              <View style={styles.grow}>
-                <Text variant='bodyLarge' style={styles.strong}>
-                  {lesson.title}
-                </Text>
-                {result ? <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{`📝 ${result.correct}/${result.total}`}</Text> : null}
-              </View>
-              {getAudio(lang, id) ? <Text style={styles.audio}>🔊</Text> : null}
-              <Text style={styles.chevron}>›</Text>
-            </View>
-          </Panel>
-        );
-      })}
-
-      {quizIds.length > 0 ? (
-        <Panel tone={best ? 'success' : 'default'} onPress={() => router.push(`/learn/quiz?kind=chapter&id=${chapter.id}`)}>
-          <View style={styles.row}>
-            <Text style={styles.audio}>🏆</Text>
-            <View style={styles.grow}>
-              <Text variant='titleMedium'>{t('learn.chapterQuiz')}</Text>
-              <Text variant='bodySmall'>{t('learnUi.quizCount', { count: quizIds.length })}</Text>
-              {best ? <Text variant='bodySmall'>{t('learn.best', { correct: best.correct, total: best.total })}</Text> : null}
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </Panel>
-      ) : null}
-    </Screen>
-  );
+  const { t } = useTranslation(); const router = useRouter(); const theme = useTheme(); const { chapterId } = useLocalSearchParams<{ chapterId: string }>(); const bundle = useBundle(); const lang = useSettings((s) => s.lang) ?? deviceLang(); const lessonsRead = useProgress((s) => s.lessonsRead); const quizResults = useProgress((s) => s.quizResults); const chapter = bundle.chapters.find((c) => c.id === Number(chapterId)); if (!chapter) return null;
+  const count = chapter.lessonIds.length; const read = chapter.lessonIds.filter((id) => lessonsRead[id]).length; const nextId = chapter.lessonIds.find((id) => !lessonsRead[id]) ?? chapter.lessonIds[0]; const cta = read === 0 ? t('learnUi.startChapter') : read === count ? t('learnUi.reviewChapter') : t('learnUi.continueChapter'); const quizIds = chapterQuizIds(bundle, chapter); const best = quizResults[`chapter:${chapter.id}`];
+  return (<View style={styles.root}><Stack.Screen options={{ title: chapter.title }} /><ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.content}><Panel><View style={styles.headRow}><View style={styles.grow}><Text variant='labelLarge' style={{ color: theme.colors.onSurfaceVariant, letterSpacing: 1 }}>{t('lessonUi.chapterLabel', { n: chapter.order })}</Text><Text variant='headlineSmall' style={{ color: theme.colors.secondary, fontWeight: '700' }}>{chapter.title}</Text></View><Text style={styles.cover}>{chapterCover(chapter.order)}</Text></View><Bar value={count > 0 ? read / count : 0} height={10} /><Text variant='bodySmall'>{t('learn.chapterProgress', { done: read, total: count })}</Text>{nextId !== undefined ? <Button mode='contained' onPress={() => router.push(`/learn/lesson/${nextId}`)}>{cta}</Button> : null}</Panel>{chapter.lessonIds.map((id, i) => { const lesson = bundle.lessons.find((l) => l.id === id); if (!lesson) return null; const isRead = Boolean(lessonsRead[id]); const result = quizResults[`lesson:${id}`]; return (<Panel key={id} onPress={() => router.push(`/learn/lesson/${id}`)}><View style={styles.row}><View style={styles.grow}><Text variant='labelSmall' style={{ color: theme.colors.onSurfaceVariant, letterSpacing: 1 }}>{t('lessonUi.lessonLabel', { n: i + 1 })}</Text><Text variant='titleMedium' style={styles.strong}>{lesson.title}</Text><View style={styles.meta}>{getAudio(lang, id) ? <Text variant='labelSmall'>🔊</Text> : null}{result ? <Text variant='labelSmall' style={{ color: theme.colors.onSurfaceVariant }}>{`📝 ${result.correct}/${result.total}`}</Text> : null}</View></View><View style={[styles.badge, { backgroundColor: isRead ? palette.successBg : theme.colors.surfaceVariant }]}><Text style={{ color: isRead ? palette.success : theme.colors.secondary, fontSize: 24, fontWeight: '700' }}>{isRead ? '✓' : '›'}</Text></View></View></Panel>); })}</ScrollView>{quizIds.length > 0 ? <View style={[styles.footer, { backgroundColor: theme.colors.background }]}><Pressable accessibilityRole='button' onPress={() => router.push(`/learn/quiz?kind=chapter&id=${chapter.id}`)} style={({ pressed }) => [styles.practice, { backgroundColor: theme.colors.secondary }, pressed && styles.pressed]}><View style={styles.grow}><Text variant='bodyMedium' style={{ color: theme.colors.onSecondary }}>{best ? `${t('learnUi.quizCount', { count: quizIds.length })} · ${t('learn.best', { correct: best.correct, total: best.total })}` : t('learnUi.quizCount', { count: quizIds.length })}</Text><Text variant='titleMedium' style={{ color: theme.colors.onSecondary, fontWeight: '700' }}>{t('lessonUi.startPractice')}</Text></View><View style={styles.chevBox}><Text style={{ color: theme.colors.onSecondary, fontSize: 26 }}>›</Text></View></Pressable></View> : null}</View>);
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  badge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  grow: { flex: 1, gap: 2 },
-  strong: { fontWeight: '600' },
-  audio: { fontSize: 22 },
-  chevron: { fontSize: 28 },
-});
+const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 16, gap: 12 }, headRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, cover: { fontSize: 56, lineHeight: 70 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, grow: { flex: 1, gap: 2 }, strong: { fontWeight: '600' }, meta: { flexDirection: 'row', gap: 10 }, badge: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, footer: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }, practice: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderRadius: 22 }, pressed: { opacity: 0.9 }, chevBox: { width: 46, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' } });
