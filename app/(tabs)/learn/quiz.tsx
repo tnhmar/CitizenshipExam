@@ -26,11 +26,7 @@ export default function QuizScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: kind === 'chapter' ? t('learn.chapterQuiz') : t('learn.lessonQuiz') }} />
-      <QuizRunner
-        questionIds={ids}
-        mode={kind === 'chapter' ? 'deferred' : 'immediate'}
-        onComplete={(r) => recordQuiz(`${kind}:${num}`, r.correct, r.total)}
-      />
+      <QuizRunner questionIds={ids} onComplete={(r) => recordQuiz(`${kind}:${num}`, r.correct, r.total)} />
     </Screen>
   );
 }

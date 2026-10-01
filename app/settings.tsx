@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { Button, Dialog, Portal, Switch, Text, TextInput } from 'react-native-paper';
+import { Panel } from '../src/components/Panel';
 import { Screen } from '../src/components/Screen';
 import { deviceLang } from '../src/i18n';
 import { isValidDay } from '../src/logic/date';
@@ -22,49 +23,53 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <Text variant='titleMedium'>{t('settings.language')}</Text>
-      <View style={styles.row}>
-        <Button mode={current === 'fr' ? 'contained' : 'outlined'} onPress={() => s.setLang('fr')}>
-          Français
-        </Button>
-        <Button mode={current === 'en' ? 'contained' : 'outlined'} onPress={() => s.setLang('en')}>
-          English
-        </Button>
-      </View>
-
-      <TextInput
-        label={t('settings.examDate')}
-        placeholder='YYYY-MM-DD'
-        value={dateText}
-        error={!dateOk}
-        autoCapitalize='none'
-        keyboardType='numbers-and-punctuation'
-        onChangeText={(v) => {
-          setDateText(v);
-          if (v === '' || isValidDay(v)) s.setExamDate(v === '' ? null : v);
-        }}
-      />
-
-      <Text variant='titleMedium'>{t('settings.dailyGoal')}</Text>
-      <View style={styles.row}>
-        {GOALS.map((g) => (
-          <Button key={g} mode={s.dailyGoalMin === g ? 'contained' : 'outlined'} onPress={() => s.setDailyGoal(g)}>
-            {t('onboarding.minutes', { count: g })}
+      <Panel>
+        <Text variant='titleMedium'>{`🌐 ${t('settings.language')}`}</Text>
+        <View style={styles.row}>
+          <Button mode={current === 'fr' ? 'contained' : 'outlined'} onPress={() => s.setLang('fr')}>
+            Français
           </Button>
-        ))}
-      </View>
+          <Button mode={current === 'en' ? 'contained' : 'outlined'} onPress={() => s.setLang('en')}>
+            English
+          </Button>
+        </View>
+      </Panel>
 
-      <View style={styles.switchRow}>
-        <Text style={styles.grow}>{t('settings.reduceMotion')}</Text>
-        <Switch value={s.reduceMotion} onValueChange={s.setReduceMotion} />
-      </View>
-      <View style={styles.switchRow}>
-        <Text style={styles.grow}>{t('settings.lockChapters')}</Text>
-        <Switch value={s.lockChapters} onValueChange={s.setLockChapters} />
-      </View>
+      <Panel>
+        <Text variant='titleMedium'>{`📅 ${t('settings.examDate')}`}</Text>
+        <TextInput
+          mode='outlined'
+          placeholder='YYYY-MM-DD'
+          value={dateText}
+          error={!dateOk}
+          autoCapitalize='none'
+          keyboardType='numbers-and-punctuation'
+          onChangeText={(v) => {
+            setDateText(v);
+            if (v === '' || isValidDay(v)) s.setExamDate(v === '' ? null : v);
+          }}
+        />
+        <Text variant='titleMedium'>{`🎯 ${t('settings.dailyGoal')}`}</Text>
+        <View style={styles.row}>
+          {GOALS.map((g) => (
+            <Button key={g} mode={s.dailyGoalMin === g ? 'contained' : 'outlined'} onPress={() => s.setDailyGoal(g)}>
+              {t('onboarding.minutes', { count: g })}
+            </Button>
+          ))}
+        </View>
+      </Panel>
 
-      <Text variant='titleMedium'>{t('settings.privacy')}</Text>
-      <Text variant='bodyMedium'>{t('settings.privacyBody')}</Text>
+      <Panel>
+        <View style={styles.switchRow}>
+          <Text style={styles.grow}>{t('settings.reduceMotion')}</Text>
+          <Switch value={s.reduceMotion} onValueChange={s.setReduceMotion} />
+        </View>
+      </Panel>
+
+      <Panel>
+        <Text variant='titleMedium'>{`🔒 ${t('settings.privacy')}`}</Text>
+        <Text variant='bodyMedium'>{t('settings.privacyBody')}</Text>
+      </Panel>
 
       <Button mode='outlined' textColor='#C62828' onPress={() => setConfirm(true)}>
         {t('settings.reset')}

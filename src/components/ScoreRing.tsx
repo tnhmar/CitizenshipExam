@@ -10,9 +10,11 @@ interface Props {
   stroke?: number;
   label?: string;
   color?: string;
+  trackColor?: string;
+  textColor?: string;
 }
 
-export function ScoreRing({ value, size = 140, stroke = 12, label, color }: Props) {
+export function ScoreRing({ value, size = 140, stroke = 12, label, color, trackColor, textColor }: Props) {
   const theme = useTheme();
   const reduce = useSettings((s) => s.reduceMotion);
   const target = Math.min(100, Math.max(0, value));
@@ -22,7 +24,7 @@ export function ScoreRing({ value, size = 140, stroke = 12, label, color }: Prop
     if (reduce) return;
     const v = new Animated.Value(0);
     const id = v.addListener(({ value: x }) => setAnimated(x));
-    Animated.timing(v, { toValue: target, duration: 700, useNativeDriver: false }).start();
+    Animated.timing(v, { toValue: target, duration: 800, useNativeDriver: false }).start();
     return () => {
       v.removeListener(id);
       v.stopAnimation();
@@ -36,7 +38,7 @@ export function ScoreRing({ value, size = 140, stroke = 12, label, color }: Prop
   return (
     <View style={{ width: size, height: size }} accessibilityRole='progressbar' accessibilityValue={{ min: 0, max: 100, now: Math.round(target) }}>
       <Svg width={size} height={size}>
-        <Circle cx={mid} cy={mid} r={r} stroke={theme.colors.surfaceVariant} strokeWidth={stroke} fill='none' />
+        <Circle cx={mid} cy={mid} r={r} stroke={trackColor ?? theme.colors.surfaceVariant} strokeWidth={stroke} fill='none' />
         <Circle
           cx={mid}
           cy={mid}
@@ -52,7 +54,9 @@ export function ScoreRing({ value, size = 140, stroke = 12, label, color }: Prop
         />
       </Svg>
       <View style={[StyleSheet.absoluteFill, styles.center]}>
-        <Text variant='headlineMedium'>{label ?? `${Math.round(target)}%`}</Text>
+        <Text variant={size >= 130 ? 'headlineMedium' : 'titleLarge'} style={{ color: textColor, fontWeight: '700' }}>
+          {label ?? `${Math.round(target)}%`}
+        </Text>
       </View>
     </View>
   );

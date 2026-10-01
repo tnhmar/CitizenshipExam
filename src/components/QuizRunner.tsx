@@ -2,23 +2,27 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, StyleSheet, View } from 'react-native';
-import { Button, ProgressBar, Text } from 'react-native-paper';
+import { Button, Text, useTheme } from 'react-native-paper';
 import { useBundle } from '../content/useBundle';
 import { isCorrect, present } from '../logic/quiz';
 import { useProgress } from '../store/progress';
 import { useSettings } from '../store/settings';
+import { palette } from '../theme';
+import { Bar } from './Bar';
+import { Panel } from './Panel';
 import { QuestionCard } from './QuestionCard';
 import { ScoreRing } from './ScoreRing';
+import { StatCard } from './StatCard';
 
 interface Props {
   questionIds: number[];
-  mode: 'immediate' | 'deferred';
   onComplete?: (r: { correct: number; total: number }) => void;
 }
 
-export function QuizRunner({ questionIds, mode, onComplete }: Props) {
+export function QuizRunner({ questionIds, onComplete }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
+  const theme = useTheme();
   const bundle = useBundle();
   const reduce = useSettings((s) => s.reduceMotion);
   const feedMistake = useProgress((s) => s.feedMistake);
@@ -50,37 +54,44 @@ export function QuizRunner({ questionIds, mode, onComplete }: Props) {
     setDone(false);
   };
 
+  const correctSoFar = presented.filter((p) => isCorrect(p, picks[p.question.id] ?? null)).length;
+
   const finish = () => {
-    let correct = 0;
-    for (const p of presented) {
-      const ok = isCorrect(p, picks[p.question.id] ?? null);
-      if (ok) correct += 1;
-      if (mode === 'deferred') feedMistake(p.question, ok);
-    }
     setDone(true);
-    if (ids.length === questionIds.length) onComplete?.({ correct, total: presented.length });
+    if (ids.length === questionIds.length) onComplete?.({ correct: correctSoFar, total: presented.length });
   };
 
   if (done) {
     const wrong = presented.filter((p) => !isCorrect(p, picks[p.question.id] ?? null));
     const correct = presented.length - wrong.length;
+    const pct = (correct * 100) / presented.length;
+    const tier = pct >= 80 ? 'quiz.tierHigh' : pct >= 60 ? 'quiz.tierMid' : 'quiz.tierLow';
+    const tint = pct >= 80 ? palette.success : pct >= 60 ? palette.warning : palette.danger;
     return (
       <View style={styles.wrap}>
-        <Text variant='titleLarge'>{t('learn.results')}</Text>
-        <View style={styles.center}>
-          <ScoreRing value={(correct * 100) / presented.length} label={`${correct}/${presented.length}`} />
-          {wrong.length === 0 ? <Text variant='titleMedium'>{t('learn.allCorrect')}</Text> : null}
+        <Panel style={styles.center}>
+          <Text variant='titleLarge'>{t('learn.results')}</Text>
+          <ScoreRing value={pct} size={150} color={tint} label={`${correct}/${presented.length}`} />
+          <Text variant='titleMedium' style={{ color: tint, textAlign: 'center' }}>
+            {t(tier)}
+          </Text>
+        </Panel>
+        <View style={styles.row}>
+          <StatCard icon='✓' value={String(correct)} label={t('quiz.correctLabel')} tone='success' />
+          <StatCard icon='✗' value={String(wrong.length)} label={t('quiz.missedLabel')} tone={wrong.length ? 'danger' : 'default'} />
         </View>
         {wrong.length > 0 ? <Text variant='titleMedium'>{t('learn.missed')}</Text> : null}
         {wrong.map((p) => {
           const pick = picks[p.question.id];
           return (
-            <View key={p.question.id} style={styles.missed}>
-              <Text variant='bodyLarge'>{p.question.text}</Text>
-              <Text variant='bodyMedium'>{t('learn.yourAnswer', { answer: pick === undefined ? t('learn.noAnswer') : p.options[pick] })}</Text>
-              <Text variant='bodyMedium'>{t('learn.correctAnswer', { answer: p.options[p.correctIndex] })}</Text>
-              {p.question.explanation ? <Text variant='bodySmall'>{p.question.explanation}</Text> : null}
-            </View>
+            <Panel key={p.question.id}>
+              <Text variant='bodyLarge' style={styles.strong}>
+                {p.question.text}
+              </Text>
+              <Text variant='bodyMedium' style={{ color: palette.danger }}>{`✗ ${t('learn.yourAnswer', { answer: pick === undefined ? t('learn.noAnswer') : p.options[pick] })}`}</Text>
+              <Text variant='bodyMedium' style={{ color: palette.success }}>{`✓ ${t('learn.correctAnswer', { answer: p.options[p.correctIndex] })}`}</Text>
+              {p.question.explanation ? <Text variant='bodySmall'>{`💡 ${p.question.explanation}`}</Text> : null}
+            </Panel>
           );
         })}
         {wrong.length > 0 ? (
@@ -98,15 +109,12 @@ export function QuizRunner({ questionIds, mode, onComplete }: Props) {
 
   const current = presented[idx];
   const pick = picks[current.question.id];
-  const canAdvance = mode === 'immediate' ? revealed : pick !== undefined;
   const last = idx + 1 === presented.length;
 
   const select = (i: number) => {
     setPicks((p) => ({ ...p, [current.question.id]: i }));
-    if (mode === 'immediate') {
-      setRevealed(true);
-      feedMistake(current.question, isCorrect(current, i));
-    }
+    setRevealed(true);
+    feedMistake(current.question, isCorrect(current, i));
   };
 
   const next = () => {
@@ -120,20 +128,31 @@ export function QuizRunner({ questionIds, mode, onComplete }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text variant='labelLarge'>{t('learn.question', { current: idx + 1, total: presented.length })}</Text>
-      <ProgressBar progress={idx / presented.length} />
+      <View style={styles.header}>
+        <Text variant='labelLarge'>{t('learn.question', { current: idx + 1, total: presented.length })}</Text>
+        <View style={[styles.pill, { backgroundColor: palette.successBg }]}>
+          <Text variant='labelMedium' style={{ color: palette.success }}>{`✓ ${t('quiz.scoreSoFar', { count: correctSoFar })}`}</Text>
+        </View>
+      </View>
+      <Bar value={(idx + (revealed ? 1 : 0)) / presented.length} height={10} />
       <Animated.View style={{ opacity: fade }}>
-        <QuestionCard presented={current} selected={pick ?? null} reveal={mode === 'immediate' && revealed} onSelect={select} />
+        <QuestionCard presented={current} selected={pick ?? null} reveal={revealed} onSelect={select} />
       </Animated.View>
-      <Button mode='contained' disabled={!canAdvance} onPress={next}>
-        {last ? t('learn.finish') : t('learn.next')}
-      </Button>
+      {revealed ? (
+        <Button mode='contained' contentStyle={styles.cta} onPress={next} buttonColor={theme.colors.primary}>
+          {last ? t('learn.finish') : t('learn.next')}
+        </Button>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { gap: 16 },
-  center: { alignItems: 'center', gap: 8 },
-  missed: { gap: 4, paddingVertical: 8 },
+  center: { alignItems: 'center', gap: 12 },
+  row: { flexDirection: 'row', gap: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  strong: { fontWeight: '600' },
+  cta: { paddingVertical: 6 },
 });

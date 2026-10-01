@@ -6,6 +6,7 @@ import { en } from './en';
 import { fr } from './fr';
 import { learnEn, learnFr } from './learn';
 import { screensEn, screensFr } from './screens';
+import { uiEn, uiFr } from './ui';
 
 export function deviceLang(): Lang {
   return getLocales()[0]?.languageCode === 'fr' ? 'fr' : 'en';
@@ -15,8 +16,8 @@ if (!i18n.isInitialized) {
   // eslint-disable-next-line import/no-named-as-default-member
   void i18n.use(initReactI18next).init({
     resources: {
-      en: { translation: { ...en, ...learnEn, ...screensEn } },
-      fr: { translation: { ...fr, ...learnFr, ...screensFr } },
+      en: { translation: { ...en, ...learnEn, ...screensEn, ...uiEn } },
+      fr: { translation: { ...fr, ...learnFr, ...screensFr, ...uiFr } },
     },
     lng: deviceLang(),
     fallbackLng: 'en',
