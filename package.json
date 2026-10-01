@@ -19,9 +19,11 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "*",
     "@react-native-community/datetimepicker": "9.1.0",
+    "@react-native-community/slider": "4.5.6",
     "expo": "~56.0.0",
     "expo-audio": "*",
     "expo-constants": "*",
+    "expo-haptics": "*",
     "expo-linking": "*",
     "expo-localization": "*",
     "expo-notifications": "~56.0.16",
