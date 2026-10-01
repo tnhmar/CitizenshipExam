@@ -38,18 +38,11 @@ export const en = {
     examDate: `Test date (YYYY-MM-DD)`,
     dailyGoal: `Daily study goal`,
     reduceMotion: `Reduce animations`,
-    lockChapters: `Lock chapters until the previous one is done`,
     reset: `Reset my progress`,
     resetTitle: `Reset progress?`,
     resetBody: `Lessons read, quiz results, exam history and review cards will be erased from this device.`,
     privacy: `Privacy`,
     privacyBody: `No account, no ads, no analytics. Everything stays on this device.`,
     version: `Version`,
-  },
-  stubs: {
-    learn: `{{chapters}} chapters and {{lessons}} lessons are loaded.`,
-    exams: `{{exams}} practice exams are loaded.`,
-    review: `Spaced-repetition review.`,
-    progress: `Your statistics will appear here.`,
   },
 };
