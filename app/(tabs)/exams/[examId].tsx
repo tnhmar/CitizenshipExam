@@ -19,12 +19,10 @@ import { palette } from '../../../src/theme';
 import type { Answer } from '../../../src/types';
 
 const stamp = (): number => Date.now();
-
 export default function ExamScreen() {
   const { examId } = useLocalSearchParams<{ examId: string }>();
   return <ExamSession key={examId} examId={Number(examId)} />;
 }
-
 function ExamSession({ examId }: { examId: number }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -38,19 +36,14 @@ function ExamSession({ examId }: { examId: number }) {
   const exam = bundle.exams.find((e) => e.id === examId);
   const presented = useMemo(() => attempt ? attempt.questionIds.map((id) => present(bundle.questions[id], attempt.seed)) : [], [attempt, bundle]);
   const idx = Math.max(0, Math.min(attempt?.cursor ?? 0, presented.length - 1));
-  const questionId = attempt?.questionIds[idx];
-  useExamQuestionTime(attempt?.id, questionId);
+  useExamQuestionTime(attempt?.id, attempt?.questionIds[idx]);
   const remaining = useExamClock(attempt);
   useFocusEffect(useCallback(() => { reviewing.current = false; }, []));
   useEffect(() => {
     if (attempt) { created.current = true; return; }
-    if (exam && !created.current) {
-      created.current = true;
-      useProgress.getState().setActive(createAttempt(exam, lang, stamp(), exam.durationMin));
-    }
+    if (exam && !created.current) { created.current = true; useProgress.getState().setActive(createAttempt(exam, lang, stamp(), exam.durationMin)); }
   }, [exam, attempt, lang]);
-  if (!exam || !attempt || presented.length === 0) return null;
-
+  if (!exam || !attempt || !presented.length) return null;
   const p = presented[idx];
   const given = attempt.answers.find((a) => a.questionId === p.question.id);
   const flags = attempt.flags ?? [];
@@ -61,10 +54,10 @@ function ExamSession({ examId }: { examId: number }) {
   const danger = theme.dark ? '#FFB4AB' : palette.danger;
   const getCurrent = () => {
     const current = useProgress.getState().active;
-    return current?.id === attempt.id && current.questionIds[current.cursor ?? 0] === p.question.id ? current : null;
+    return current?.id === attempt.id && current.questionIds[current.cursor ?? 0] === p.question.id && stamp() < current.startedAt + current.limitMs ? current : null;
   };
   const go = (n: number) => {
-    if (!getCurrent() || n < 0 || n >= presented.length) return;
+    if (!getCurrent() || n === idx || n < 0 || n >= presented.length) return;
     flushExamQuestionTime(attempt.id, true);
     const current = useProgress.getState().active;
     if (current?.id === attempt.id) useProgress.getState().setActive({ ...current, cursor: n });
@@ -88,64 +81,23 @@ function ExamSession({ examId }: { examId: number }) {
     router.push('/exams/summary');
   };
   const leave = () => { flushExamQuestionTime(attempt.id, true); router.back(); };
-
-  return (
-    <>
-      <Stack.Screen options={{ title: exam.title, headerBackVisible: false, headerLeft: () => (
-        <Pressable accessibilityRole='button' accessibilityLabel={t('exams.leave')} onPress={leave} style={styles.close}>
-          <Text style={{ fontSize: 22, color: theme.colors.onPrimary }}>✕</Text>
-        </Pressable>
-      ) }} />
-      <StudyScreen scrollKey={`${attempt.id}-${idx}`} top={
-        <Panel tone={low ? 'danger' : 'default'}>
-          <View style={styles.top}>
-            <Text accessibilityLabel={t('exams.timeLeft', { time: formatClock(remaining) })} variant='headlineSmall' style={{ fontWeight: '700', color: low ? danger : theme.colors.onSurface }}>{`⏱ ${formatClock(remaining)}`}</Text>
-            <Text variant='labelLarge'>{t('learn.question', { current: idx + 1, total: presented.length })}</Text>
-          </View>
-          <Bar value={attempt.answers.length / presented.length} />
-          <Text variant='bodySmall'>{t('examUi.answered', { n: attempt.answers.length, total: presented.length })}</Text>
-        </Panel>
-      } footer={
-        <>
-          <View style={styles.controls}>
-            <Pressable accessibilityRole='button' accessibilityState={{ disabled: idx === 0 }} disabled={idx === 0} onPress={() => go(idx - 1)} style={[styles.control, { borderColor: theme.colors.outline }, idx === 0 && styles.disabled]}>
-              <Text style={{ color: theme.colors.secondary, textAlign: 'center' }}>{t('exams.previous')}</Text>
-            </Pressable>
-            <Pressable accessibilityRole='button' accessibilityLabel={flagged ? t('exams.unflag') : t('exams.flag')} accessibilityState={{ selected: flagged }} onPress={toggleFlag} style={[styles.flagButton, { borderColor: warning, backgroundColor: flagged ? theme.colors.surfaceVariant : theme.colors.surface }]}>
-              <Text style={{ color: warning, fontSize: 24 }}>⚑</Text>
-            </Pressable>
-            <Pressable accessibilityRole='button' onPress={last ? review : () => go(idx + 1)} style={[styles.control, { borderColor: theme.colors.secondary, backgroundColor: theme.colors.secondary }]}>
-              <Text style={{ color: theme.colors.onSecondary, textAlign: 'center', fontWeight: '700' }}>{last ? t('examUi.summaryTitle') : t('exams.next')}</Text>
-            </Pressable>
-          </View>
-          {!last ? <Pressable accessibilityRole='button' onPress={review} style={styles.review}><Text style={{ color: theme.colors.secondary, textAlign: 'center' }}>{t('examUi.summaryTitle')}</Text></Pressable> : null}
-        </>
-      }>
-        <View style={styles.grid}>
-          {attempt.questionIds.map((qid, i) => {
-            const answered = attempt.answers.some((a) => a.questionId === qid);
-            const marked = flags.includes(qid);
-            return <Pressable key={qid} accessibilityRole='button' accessibilityLabel={`${t('examUi.questionNo', { n: i + 1 })}, ${answered ? t('examUi.statAnswered') : t('examUi.statUnanswered')}${marked ? `, ${t('examUi.statFlagged')}` : ''}`} accessibilityState={{ selected: i === idx }} onPress={() => go(i)} style={[styles.dot, { borderWidth: i === idx ? 3 : 1.5, borderColor: i === idx ? theme.colors.primary : marked ? warning : theme.colors.outline, backgroundColor: answered ? theme.colors.primary : theme.colors.surface }]}>
-              <Text style={{ color: answered ? theme.colors.onPrimary : theme.colors.onSurface }}>{i + 1}</Text>
-              {marked ? <Text style={[styles.flag, { color: warning }]}>⚑</Text> : null}
-            </Pressable>;
-          })}
-        </View>
-        <QuestionCard key={p.question.id} presented={p} selected={given?.chosen ?? null} reveal={false} onSelect={select} />
-      </StudyScreen>
-    </>
-  );
+  return <>
+    <Stack.Screen options={{ title: exam.title, headerBackVisible: false, headerLeft: () => <Pressable accessibilityRole='button' accessibilityLabel={t('exams.leave')} onPress={leave} style={styles.close}><Text style={{ fontSize: 22, color: theme.colors.onPrimary }}>✕</Text></Pressable> }} />
+    <StudyScreen scrollKey={`${attempt.id}-${idx}`} top={<Panel tone={low ? 'danger' : 'default'}><View style={styles.top}><Text accessibilityLabel={t('exams.timeLeft', { time: formatClock(remaining) })} variant='headlineSmall' style={{ fontWeight: '700', color: low ? danger : theme.colors.onSurface }}>{`⏱ ${formatClock(remaining)}`}</Text><Text variant='labelLarge'>{t('learn.question', { current: idx + 1, total: presented.length })}</Text></View><Bar value={attempt.answers.length / presented.length} /><Text variant='bodySmall'>{t('examUi.answered', { n: attempt.answers.length, total: presented.length })}</Text></Panel>} footer={<>
+      <View style={styles.controls}>
+        <Pressable accessibilityRole='button' accessibilityState={{ disabled: idx === 0 }} disabled={idx === 0} onPress={() => go(idx - 1)} style={[styles.control, { borderColor: theme.colors.outline }, idx === 0 && styles.disabled]}><Text style={{ color: theme.colors.secondary, textAlign: 'center' }}>{t('exams.previous')}</Text></Pressable>
+        <Pressable accessibilityRole='button' accessibilityLabel={flagged ? t('exams.unflag') : t('exams.flag')} accessibilityState={{ selected: flagged }} onPress={toggleFlag} style={[styles.flagButton, { borderColor: warning, backgroundColor: flagged ? theme.colors.surfaceVariant : theme.colors.surface }]}><Text style={{ color: warning, fontSize: 24 }}>⚑</Text></Pressable>
+        <Pressable accessibilityRole='button' onPress={last ? review : () => go(idx + 1)} style={[styles.control, { borderColor: theme.colors.secondary, backgroundColor: theme.colors.secondary }]}><Text style={{ color: theme.colors.onSecondary, textAlign: 'center', fontWeight: '700' }}>{last ? t('examUi.summaryTitle') : t('exams.next')}</Text></Pressable>
+      </View>
+      {!last ? <Pressable accessibilityRole='button' onPress={review} style={styles.review}><Text style={{ color: theme.colors.secondary, textAlign: 'center' }}>{t('examUi.summaryTitle')}</Text></Pressable> : null}
+    </>}>
+      <View style={styles.grid}>{attempt.questionIds.map((qid, i) => {
+        const answered = attempt.answers.some((a) => a.questionId === qid);
+        const marked = flags.includes(qid);
+        return <Pressable key={qid} accessibilityRole='button' accessibilityLabel={`${t('examUi.questionNo', { n: i + 1 })}, ${answered ? t('examUi.statAnswered') : t('examUi.statUnanswered')}${marked ? `, ${t('examUi.statFlagged')}` : ''}`} accessibilityState={{ selected: i === idx }} onPress={() => go(i)} style={[styles.dot, { borderWidth: i === idx ? 3 : 1.5, borderColor: i === idx ? theme.colors.primary : marked ? warning : theme.colors.outline, backgroundColor: answered ? theme.colors.primary : theme.colors.surface }]}><Text style={{ color: answered ? theme.colors.onPrimary : theme.colors.onSurface }}>{i + 1}</Text>{marked ? <Text style={[styles.flag, { color: warning }]}>⚑</Text> : null}</Pressable>;
+      })}</View>
+      <QuestionCard key={p.question.id} presented={p} selected={given?.chosen ?? null} reveal={false} onSelect={select} />
+    </StudyScreen>
+  </>;
 }
-
-const styles = StyleSheet.create({
-  top: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  dot: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  flag: { position: 'absolute', top: -6, right: -2, fontSize: 14 },
-  controls: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  control: { flex: 1, minWidth: 100, minHeight: 48, padding: 10, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  flagButton: { width: 48, height: 48, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  disabled: { opacity: 0.4 },
-  review: { minHeight: 44, justifyContent: 'center' },
-  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-});
+const styles = StyleSheet.create({ top: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, dot: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }, flag: { position: 'absolute', top: -6, right: -2, fontSize: 14 }, controls: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }, control: { flex: 1, minWidth: 100, minHeight: 48, padding: 10, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, flagButton: { width: 48, height: 48, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, disabled: { opacity: 0.4 }, review: { minHeight: 44, justifyContent: 'center' }, close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' } });
