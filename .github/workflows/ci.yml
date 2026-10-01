@@ -1,0 +1,97 @@
+name: CI - CitizenshipExam
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, typecheck, and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test -- --ci --watchAll=false
+
+  build-android:
+    name: Build Android APK (local build on the runner) and publish it
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Report which content goes into the app
+        id: content
+        run: node scripts/report-content.mjs
+
+      - name: Align Expo SDK patch versions (fixes expo-module-gradle-plugin bug)
+        run: npx expo install --fix
+        env:
+          CI: 1
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Generate native Android project (expo prebuild)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build standalone release APK (bundles JS, no Metro required)
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: citizenshipexam-android-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
+
+      - name: Publish APK to the latest-apk pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SUMMARY: ${{ steps.content.outputs.summary }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk citizenshipexam.apk
+          gh release delete latest-apk --cleanup-tag --yes || true
+          gh release create latest-apk citizenshipexam.apk --prerelease --target "$SHA" --title "Latest test APK" --notes "Built from commit $SHA (run ${{ github.run_number }}). $SUMMARY"

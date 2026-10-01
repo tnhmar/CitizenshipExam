@@ -1,0 +1,20 @@
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+*.log
+.DS_Store
+
+# generated at install time (postinstall)
+src/content/generated/
+assets/generated/
+
+# private content: never committed
+data/source/*
+!data/source/README.md
+assets/audio_fr/*
+assets/audio_en/*
+!assets/audio_fr/README.md
+!assets/audio_en/README.md
