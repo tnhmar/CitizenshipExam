@@ -19,6 +19,10 @@ export const uiEn = {
     lessonCount_other: `{{count}} lessons`,
     quizCount: `{{count}} questions`,
   },
+  studyControls: {
+    chooseAnswer: `Choose an answer to continue.`,
+    results: `View results`,
+  },
 };
 
 export const uiFr: typeof uiEn = {
@@ -41,5 +45,9 @@ export const uiFr: typeof uiEn = {
     lessonCount_one: `{{count}} leçon`,
     lessonCount_other: `{{count}} leçons`,
     quizCount: `{{count}} questions`,
+  },
+  studyControls: {
+    chooseAnswer: `Choisissez une réponse pour continuer.`,
+    results: `Voir les résultats`,
   },
 };
