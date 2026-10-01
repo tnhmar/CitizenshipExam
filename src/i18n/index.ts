@@ -13,6 +13,7 @@ import { lessonEn, lessonFr } from './lesson';
 import { moreEn, moreFr } from './more';
 import { remindersEn, remindersFr } from './reminders';
 import { screensEn, screensFr } from './screens';
+import { settingsUxEn, settingsUxFr } from './settingsUx';
 import { uiEn, uiFr } from './ui';
 
 export function deviceLang(): Lang { return getLocales()[0]?.languageCode === 'fr' ? 'fr' : 'en'; }
@@ -20,8 +21,8 @@ if (!i18n.isInitialized) {
   // eslint-disable-next-line import/no-named-as-default-member
   void i18n.use(initReactI18next).init({
     resources: {
-      en: { translation: { ...en, ...learnEn, ...screensEn, ...uiEn, ...examEn, ...homeEn, ...moreEn, ...lessonEn, ...glossaryEn, ...remindersEn, ...focusEn } },
-      fr: { translation: { ...fr, ...learnFr, ...screensFr, ...uiFr, ...examFr, ...homeFr, ...moreFr, ...lessonFr, ...glossaryFr, ...remindersFr, ...focusFr } },
+      en: { translation: { ...en, ...learnEn, ...screensEn, ...uiEn, ...examEn, ...homeEn, ...moreEn, ...lessonEn, ...glossaryEn, ...remindersEn, ...focusEn, ...settingsUxEn } },
+      fr: { translation: { ...fr, ...learnFr, ...screensFr, ...uiFr, ...examFr, ...homeFr, ...moreFr, ...lessonFr, ...glossaryFr, ...remindersFr, ...focusFr, ...settingsUxFr } },
     },
     lng: deviceLang(), fallbackLng: 'en', interpolation: { escapeValue: false },
   });
