@@ -37,10 +37,11 @@ jobs:
         run: npm test -- --ci --watchAll=false
 
   build-android:
-    name: Build Android APK (local, manual trigger only)
+    name: Build Android APK (local build on the runner) and publish it
     needs: test
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,6 +53,10 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Report which content goes into the app
+        id: content
+        run: node scripts/report-content.mjs
 
       - name: Align Expo SDK patch versions (fixes expo-module-gradle-plugin bug)
         run: npx expo install --fix
@@ -80,3 +85,13 @@ jobs:
           name: citizenshipexam-android-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 14
+
+      - name: Publish APK to the latest-apk pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SUMMARY: ${{ steps.content.outputs.summary }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk citizenshipexam.apk
+          gh release delete latest-apk --cleanup-tag --yes || true
+          gh release create latest-apk citizenshipexam.apk --prerelease --target "$SHA" --title "Latest test APK" --notes "Built from commit $SHA (run ${{ github.run_number }}). $SUMMARY"
