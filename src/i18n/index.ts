@@ -5,6 +5,7 @@ import type { Lang } from '../types';
 import { en } from './en';
 import { examEn, examFr } from './exam';
 import { fr } from './fr';
+import { glossaryEn, glossaryFr } from './glossary';
 import { homeEn, homeFr } from './home';
 import { learnEn, learnFr } from './learn';
 import { lessonEn, lessonFr } from './lesson';
@@ -20,8 +21,8 @@ if (!i18n.isInitialized) {
   // eslint-disable-next-line import/no-named-as-default-member
   void i18n.use(initReactI18next).init({
     resources: {
-      en: { translation: { ...en, ...learnEn, ...screensEn, ...uiEn, ...examEn, ...homeEn, ...moreEn, ...lessonEn } },
-      fr: { translation: { ...fr, ...learnFr, ...screensFr, ...uiFr, ...examFr, ...homeFr, ...moreFr, ...lessonFr } },
+      en: { translation: { ...en, ...learnEn, ...screensEn, ...uiEn, ...examEn, ...homeEn, ...moreEn, ...lessonEn, ...glossaryEn } },
+      fr: { translation: { ...fr, ...learnFr, ...screensFr, ...uiFr, ...examFr, ...homeFr, ...moreFr, ...lessonFr, ...glossaryFr } },
     },
     lng: deviceLang(),
     fallbackLng: 'en',
