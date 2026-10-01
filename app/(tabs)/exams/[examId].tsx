@@ -18,6 +18,8 @@ import { useSettings } from '../../../src/store/settings';
 import { palette } from '../../../src/theme';
 import type { Answer } from '../../../src/types';
 
+const stamp = (): number => Date.now();
+
 export default function ExamScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -39,7 +41,7 @@ export default function ExamScreen() {
   const remaining = useExamClock(attempt);
 
   useEffect(() => {
-    entered.current = Date.now();
+    entered.current = stamp();
   }, []);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function ExamScreen() {
     }
     if (exam && !created.current) {
       created.current = true;
-      setActive(createAttempt(exam, lang, Date.now(), exam.durationMin));
+      setActive(createAttempt(exam, lang, stamp(), exam.durationMin));
     }
   }, [exam, attempt, lang, setActive]);
 
@@ -64,8 +66,9 @@ export default function ExamScreen() {
 
   const go = (n: number) => {
     const qid = attempt.questionIds[idx];
-    const spent = { ...(attempt.spent ?? {}), [qid]: (attempt.spent?.[qid] ?? 0) + (Date.now() - entered.current) };
-    entered.current = Date.now();
+    const moment = stamp();
+    const spent = { ...(attempt.spent ?? {}), [qid]: (attempt.spent?.[qid] ?? 0) + (moment - entered.current) };
+    entered.current = moment;
     setActive({ ...attempt, cursor: n, spent });
   };
 

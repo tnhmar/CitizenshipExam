@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { Button, Text, useTheme } from 'react-native-paper';
+import { Button, Text } from 'react-native-paper';
 import { Bar } from '../../../../src/components/Bar';
 import { Panel } from '../../../../src/components/Panel';
 import { Screen } from '../../../../src/components/Screen';
@@ -15,7 +15,6 @@ import { palette } from '../../../../src/theme';
 export default function ResultScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const theme = useTheme();
   const { attemptId } = useLocalSearchParams<{ attemptId: string }>();
   const bundle = useBundle();
   const attempts = useProgress((s) => s.attempts);
