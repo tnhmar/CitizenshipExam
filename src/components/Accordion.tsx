@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useSettings } from '../store/settings';
@@ -14,7 +14,7 @@ export function Accordion({ title, subtitle, initiallyOpen = false, children }: 
   const theme = useTheme();
   const reduce = useSettings((s) => s.reduceMotion);
   const [open, setOpen] = useState(initiallyOpen);
-  const rot = useRef(new Animated.Value(initiallyOpen ? 1 : 0)).current;
+  const [rot] = useState(() => new Animated.Value(initiallyOpen ? 1 : 0));
 
   const toggle = () => {
     const next = !open;

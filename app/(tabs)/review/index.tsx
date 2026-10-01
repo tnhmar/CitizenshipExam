@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, Text } from 'react-native-paper';
 import { Screen } from '../../../src/components/Screen';
@@ -11,8 +12,16 @@ export default function ReviewIndex() {
   const router = useRouter();
   const bundle = useBundle();
   const cardsMap = useProgress((s) => s.cards);
+  const [now, setNow] = useState(() => Date.now());
+
+  useFocusEffect(
+    useCallback(() => {
+      setNow(Date.now());
+    }, []),
+  );
+
   const cards = Object.values(cardsMap);
-  const due = countDue(cards, Date.now());
+  const due = countDue(cards, now);
   const missed = countMissed(cards);
 
   const deck = (key: string, title: string, hint: string, disabled: boolean) => (

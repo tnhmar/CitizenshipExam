@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 import type { ContentBundle, Lang } from '../types';
 
 const bundles: Record<Lang, ContentBundle> = {

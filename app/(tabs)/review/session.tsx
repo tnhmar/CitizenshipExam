@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { Button, Dialog, Menu, Portal, ProgressBar, Text, useTheme } from 'react-native-paper';
@@ -53,8 +53,12 @@ export default function ReviewSession() {
   const [nextDue, setNextDue] = useState<number | null>(null);
   const [menu, setMenu] = useState(false);
   const [quit, setQuit] = useState(false);
-  const startedAt = useRef(Date.now());
-  const flip = useRef(new Animated.Value(0)).current;
+  const startedAt = useRef(0);
+  const [flip] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    startedAt.current = Date.now();
+  }, []);
 
   const qid = ids[idx];
   const q = glossaryDeck ? undefined : bundle.questions[qid];

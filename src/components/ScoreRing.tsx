@@ -16,15 +16,12 @@ export function ScoreRing({ value, size = 140, stroke = 12, label, color }: Prop
   const theme = useTheme();
   const reduce = useSettings((s) => s.reduceMotion);
   const target = Math.min(100, Math.max(0, value));
-  const [shown, setShown] = useState(reduce ? target : 0);
+  const [animated, setAnimated] = useState(0);
 
   useEffect(() => {
-    if (reduce) {
-      setShown(target);
-      return;
-    }
+    if (reduce) return;
     const v = new Animated.Value(0);
-    const id = v.addListener(({ value: x }) => setShown(x));
+    const id = v.addListener(({ value: x }) => setAnimated(x));
     Animated.timing(v, { toValue: target, duration: 700, useNativeDriver: false }).start();
     return () => {
       v.removeListener(id);
@@ -32,6 +29,7 @@ export function ScoreRing({ value, size = 140, stroke = 12, label, color }: Prop
     };
   }, [target, reduce]);
 
+  const shown = reduce ? target : animated;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const mid = size / 2;

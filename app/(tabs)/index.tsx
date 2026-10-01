@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
@@ -23,8 +24,14 @@ export default function Home() {
   const cards = useProgress((s) => s.cards);
   const streak = useProgress((s) => s.streak);
   const lastRoute = useProgress((s) => s.lastRoute);
+  const [now, setNow] = useState(() => Date.now());
 
-  const now = Date.now();
+  useFocusEffect(
+    useCallback(() => {
+      setNow(Date.now());
+    }, []),
+  );
+
   const quizzes = Object.values(quizResults);
   const total = quizzes.reduce((sum, q) => sum + q.total, 0);
   const right = quizzes.reduce((sum, q) => sum + q.correct, 0);

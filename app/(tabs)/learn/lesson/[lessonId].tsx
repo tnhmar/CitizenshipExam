@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { Button, Text, useTheme } from 'react-native-paper';
+import { Button, useTheme } from 'react-native-paper';
 import { activeBlocks, alignSentences, layoutBlocks, sentencesFromTiming } from '../../../../src/audio/alignment';
 import { AudioBar } from '../../../../src/components/AudioBar';
 import { RichText } from '../../../../src/components/RichText';

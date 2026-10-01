@@ -31,7 +31,7 @@ export default function ExamScreen() {
   const [confirm, setConfirm] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const spent = useRef<Record<number, number>>({});
-  const entered = useRef(Date.now());
+  const entered = useRef(0);
   const submitted = useRef(false);
 
   const exam = bundle.exams.find((e) => e.id === Number(examId));
@@ -40,6 +40,10 @@ export default function ExamScreen() {
     () => (attempt ? attempt.questionIds.map((id) => present(bundle.questions[id], attempt.seed)) : []),
     [attempt, bundle],
   );
+
+  useEffect(() => {
+    entered.current = Date.now();
+  }, []);
 
   useEffect(() => {
     if (exam && !attempt && !submitted.current) setActive(createAttempt(exam, lang, Date.now(), exam.durationMin));

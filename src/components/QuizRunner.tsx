@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, StyleSheet, View } from 'react-native';
 import { Button, ProgressBar, Text } from 'react-native-paper';
@@ -29,7 +29,7 @@ export function QuizRunner({ questionIds, mode, onComplete }: Props) {
   const [picks, setPicks] = useState<Record<number, number>>({});
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(false);
-  const fade = useRef(new Animated.Value(1)).current;
+  const [fade] = useState(() => new Animated.Value(1));
 
   const presented = useMemo(() => ids.map((id) => present(bundle.questions[id], seed)), [ids, bundle, seed]);
 
