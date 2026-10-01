@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from 'react-native-paper';
-import { palette } from '../theme';
+import { tints } from '../theme';
 
 export type Tone = 'default' | 'primary' | 'success' | 'warning' | 'danger';
 
@@ -15,14 +15,15 @@ interface Props {
 
 export function Panel({ children, onPress, tone = 'default', style, accessibilityLabel }: Props) {
   const theme = useTheme();
+  const solid = theme.dark ? tints.dark : tints.light;
   const background = {
     default: theme.colors.surface,
     primary: theme.colors.primary,
-    success: palette.successBg,
-    warning: palette.warningBg,
-    danger: palette.dangerBg,
+    success: solid.success,
+    warning: solid.warning,
+    danger: solid.danger,
   }[tone];
-  const look = [styles.panel, { backgroundColor: background, borderColor: tone === 'default' ? theme.colors.outlineVariant : 'transparent' }, style];
+  const look = [styles.panel, { backgroundColor: background, borderColor: tone === 'default' ? theme.colors.outlineVariant : background }, style];
 
   if (!onPress) return <View style={look}>{children}</View>;
   return (

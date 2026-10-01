@@ -9,6 +9,11 @@ export const palette = {
   warningBg: 'rgba(237,108,2,0.14)',
 };
 
+export const tints = {
+  light: { success: '#E3F1E4', warning: '#FDEBD9', danger: '#F9E0E0' },
+  dark: { success: '#1F3A22', warning: '#43301A', danger: '#472122' },
+};
+
 export const lightTheme: MD3Theme = {
   ...MD3LightTheme,
   colors: {
@@ -42,3 +47,10 @@ export const darkTheme: MD3Theme = {
     outlineVariant: '#3A3C47',
   },
 };
+
+export const headerOptions = (theme: MD3Theme) => ({
+  headerStyle: { backgroundColor: theme.colors.primary },
+  headerTintColor: theme.colors.onPrimary,
+  headerTitleStyle: { fontWeight: '700' as const },
+  headerShadowVisible: false,
+});

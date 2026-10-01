@@ -1,10 +1,13 @@
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'react-native-paper';
+import { headerOptions } from '../../../src/theme';
 
 export default function ExamsLayout() {
   const { t } = useTranslation();
+  const theme = useTheme();
   return (
-    <Stack>
+    <Stack screenOptions={headerOptions(theme)}>
       <Stack.Screen name='index' options={{ title: t('tabs.exams') }} />
       <Stack.Screen name='[examId]' options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
       <Stack.Screen name='summary' options={{ title: t('examUi.summaryTitle') }} />

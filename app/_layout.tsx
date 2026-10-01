@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import i18n from '../src/i18n';
 import { useHydrated } from '../src/store/hydration';
 import { useSettings } from '../src/store/settings';
-import { darkTheme, lightTheme } from '../src/theme';
+import { darkTheme, headerOptions, lightTheme } from '../src/theme';
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
@@ -32,6 +32,7 @@ export default function RootLayout() {
   const hydrated = useHydrated();
   const lang = useSettings((s) => s.lang);
   const { t } = useTranslation();
+  const theme = scheme === 'dark' ? darkTheme : lightTheme;
 
   useEffect(() => {
     if (lang) void i18n.changeLanguage(lang);
@@ -41,10 +42,10 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={scheme === 'dark' ? darkTheme : lightTheme}>
-        <StatusBar style='auto' />
+      <PaperProvider theme={theme}>
+        <StatusBar style='light' />
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name='settings' options={{ headerShown: true, presentation: 'modal', title: t('settings.title') }} />
+          <Stack.Screen name='settings' options={{ headerShown: true, presentation: 'modal', title: t('settings.title'), ...headerOptions(theme) }} />
         </Stack>
       </PaperProvider>
     </SafeAreaProvider>

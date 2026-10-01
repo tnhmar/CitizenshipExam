@@ -88,7 +88,7 @@ export default function ExamScreen() {
           headerBackVisible: false,
           headerLeft: () => (
             <Pressable accessibilityRole='button' accessibilityLabel={t('exams.leave')} onPress={() => router.back()}>
-              <Text style={{ fontSize: 20 }}>✕</Text>
+              <Text style={{ fontSize: 22, color: theme.colors.onPrimary }}>✕</Text>
             </Pressable>
           ),
         }}
