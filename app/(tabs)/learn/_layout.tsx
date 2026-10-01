@@ -6,6 +6,7 @@ export default function LearnLayout() {
   return (
     <Stack>
       <Stack.Screen name='index' options={{ title: t('tabs.learn') }} />
+      <Stack.Screen name='quiz' options={{ title: t('learn.quizTitle'), animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }
