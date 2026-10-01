@@ -2,10 +2,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { Button, Dialog, Menu, Portal, ProgressBar, Text, useTheme } from 'react-native-paper';
+import { Button, Dialog, Menu, Portal, Text, useTheme } from 'react-native-paper';
+import { Bar } from '../../../src/components/Bar';
+import { Panel } from '../../../src/components/Panel';
 import { QuestionCard } from '../../../src/components/QuestionCard';
 import { Screen } from '../../../src/components/Screen';
 import { ScoreRing } from '../../../src/components/ScoreRing';
+import { StatCard } from '../../../src/components/StatCard';
 import { REVIEW_SESSION_SIZE } from '../../../src/config';
 import { useBundle } from '../../../src/content/useBundle';
 import { isCorrect, present } from '../../../src/logic/quiz';
@@ -15,6 +18,7 @@ import { gradeFrom } from '../../../src/logic/srs';
 import { formatClock } from '../../../src/logic/stats';
 import { useProgress } from '../../../src/store/progress';
 import { useSettings } from '../../../src/store/settings';
+import { palette } from '../../../src/theme';
 import type { Grade } from '../../../src/types';
 
 type Mode = 'quiz' | 'flash';
@@ -126,7 +130,9 @@ export default function ReviewSession() {
   if (ids.length === 0) {
     return (
       <Screen>
-        <Text variant='bodyLarge'>{t('review.empty')}</Text>
+        <Panel>
+          <Text variant='bodyLarge'>{t('review.empty')}</Text>
+        </Panel>
         <Button mode='contained' onPress={() => router.back()}>
           {t('review.done')}
         </Button>
@@ -138,21 +144,27 @@ export default function ReviewSession() {
     const total = stats.know + stats.guess + stats.unknown;
     return (
       <Screen>
-        <Text variant='titleLarge'>{t('review.summaryTitle')}</Text>
-        <View style={styles.center}>
-          <ScoreRing value={total ? (stats.know * 100) / total : 0} label={`${stats.know}/${total}`} />
+        <Panel style={styles.centerPanel}>
+          <Text variant='titleLarge'>{t('review.summaryTitle')}</Text>
+          <ScoreRing value={total ? (stats.know * 100) / total : 0} size={150} color={palette.success} label={`${stats.know}/${total}`} />
+          <Text variant='bodyLarge'>{`⏱ ${t('review.time', { time: formatClock(elapsed) })}`}</Text>
+        </Panel>
+        <View style={styles.row}>
+          <StatCard icon='✓' value={String(stats.know)} label={t('review.know')} tone='success' />
+          <StatCard icon='≈' value={String(stats.guess)} label={t('review.guessed')} tone={stats.guess ? 'warning' : 'default'} />
+          <StatCard icon='✗' value={String(stats.unknown)} label={t('review.dontKnow')} tone={stats.unknown ? 'danger' : 'default'} />
         </View>
-        <Text variant='bodyLarge'>{t('review.time', { time: formatClock(elapsed) })}</Text>
-        <Text variant='bodyLarge'>{t('review.stats', stats)}</Text>
         {glossaryDeck ? null : (
-          <Text variant='bodyMedium'>{nextDue ? t('review.nextReview', { date: new Date(nextDue).toLocaleDateString() }) : t('review.noNext')}</Text>
+          <Panel>
+            <Text variant='bodyMedium'>{`📅 ${nextDue ? t('review.nextReview', { date: new Date(nextDue).toLocaleDateString() }) : t('review.noNext')}`}</Text>
+          </Panel>
         )}
         {missed.length > 0 ? (
           <Button mode='outlined' onPress={redo}>
             {t('review.redoMissed')}
           </Button>
         ) : null}
-        <Button mode='contained' onPress={() => router.back()}>
+        <Button mode='contained' contentStyle={styles.cta} onPress={() => router.back()}>
           {t('review.done')}
         </Button>
       </Screen>
@@ -190,21 +202,21 @@ export default function ReviewSession() {
           />
         </Menu>
       </View>
-      <ProgressBar progress={idx / ids.length} />
+      <Bar value={idx / ids.length} height={10} />
 
       {mode === 'quiz' && p ? (
         <View style={styles.block}>
           <QuestionCard presented={p} selected={pick} reveal={revealed} onSelect={pickAnswer} />
           {revealed ? (
-            <Button mode='contained' onPress={advance}>
+            <Button mode='contained' contentStyle={styles.cta} onPress={advance}>
               {last ? t('learn.finish') : t('learn.next')}
             </Button>
           ) : (
             <View style={styles.row}>
-              <Button mode={guessing ? 'contained' : 'outlined'} onPress={() => setGuessing(!guessing)}>
+              <Button style={styles.grow} mode={guessing ? 'contained' : 'outlined'} buttonColor={guessing ? palette.warning : undefined} onPress={() => setGuessing(!guessing)}>
                 {guessing ? t('review.guessingOn') : t('review.guessing')}
               </Button>
-              <Button mode='outlined' onPress={dontKnow}>
+              <Button style={styles.grow} mode='outlined' onPress={dontKnow}>
                 {t('review.dontKnow')}
               </Button>
             </View>
@@ -212,24 +224,28 @@ export default function ReviewSession() {
         </View>
       ) : (
         <View style={styles.block}>
-          <Text variant='bodySmall'>{t('review.flipHint')}</Text>
+          <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>{`↻ ${t('review.flipHint')}`}</Text>
           <Pressable accessibilityRole='button' onPress={doFlip} style={styles.cardBox}>
-            <Animated.View style={[styles.face, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline, backfaceVisibility: 'hidden', transform: [{ perspective: 1000 }, { rotateY: frontRot }] }]}>
-              <Text variant='titleLarge'>{front}</Text>
+            <Animated.View style={[styles.face, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary, backfaceVisibility: 'hidden', transform: [{ perspective: 1000 }, { rotateY: frontRot }] }]}>
+              <Text variant='titleLarge' style={styles.faceText}>
+                {front}
+              </Text>
             </Animated.View>
-            <Animated.View style={[styles.face, { backgroundColor: theme.colors.secondaryContainer, borderColor: theme.colors.outline, backfaceVisibility: 'hidden', transform: [{ perspective: 1000 }, { rotateY: backRot }] }]}>
-              <Text variant='bodyLarge'>{back}</Text>
+            <Animated.View style={[styles.face, { backgroundColor: theme.colors.primaryContainer, borderColor: theme.colors.primary, backfaceVisibility: 'hidden', transform: [{ perspective: 1000 }, { rotateY: backRot }] }]}>
+              <Text variant='bodyLarge' style={{ color: theme.colors.onPrimaryContainer, textAlign: 'center' }}>
+                {back}
+              </Text>
             </Animated.View>
           </Pressable>
           {flipped ? (
             <View style={styles.row}>
-              <Button mode='outlined' onPress={() => grade('unknown')}>
+              <Button style={styles.grow} mode='contained' buttonColor={palette.danger} textColor='#FFFFFF' onPress={() => grade('unknown')}>
                 {t('review.dontKnow')}
               </Button>
-              <Button mode='outlined' onPress={() => grade('guess')}>
+              <Button style={styles.grow} mode='contained' buttonColor={palette.warning} textColor='#FFFFFF' onPress={() => grade('guess')}>
                 {t('review.guessed')}
               </Button>
-              <Button mode='contained' onPress={() => grade('know')}>
+              <Button style={styles.grow} mode='contained' buttonColor={palette.success} textColor='#FFFFFF' onPress={() => grade('know')}>
                 {t('review.know')}
               </Button>
             </View>
@@ -256,8 +272,11 @@ export default function ReviewSession() {
 const styles = StyleSheet.create({
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   block: { gap: 16 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  center: { alignItems: 'center' },
-  cardBox: { minHeight: 240 },
-  face: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderWidth: 1.5, borderRadius: 16, padding: 20, justifyContent: 'center' },
+  row: { flexDirection: 'row', gap: 8 },
+  grow: { flex: 1 },
+  centerPanel: { alignItems: 'center', gap: 12 },
+  cta: { paddingVertical: 6 },
+  cardBox: { minHeight: 280 },
+  face: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderWidth: 2, borderRadius: 24, padding: 24, justifyContent: 'center' },
+  faceText: { textAlign: 'center', fontWeight: '600' },
 });
