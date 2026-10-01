@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from 'react-native-paper';
 import { headerOptions } from '../../../src/theme';
 
+export const unstable_settings = { anchor: 'index' };
+
 export default function LearnLayout() {
   const { t } = useTranslation();
   const theme = useTheme();
