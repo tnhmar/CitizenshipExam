@@ -4,12 +4,14 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { getBundle } from '../content/loader';
 import { toggleBookmark as toggleSaved, type Bookmarks } from '../logic/bookmarks';
 import { initialLearning, migrateLearning, recordLearningQuiz, startLesson, studyLesson, type LearningProgress, type LearningQuizResult } from '../logic/completion';
+import { captureExamSelections, captureQuestionResponse, historyData, migrateCapturedProgress, type AssessmentContext } from '../logic/assessmentCapture';
+import { initialAssessmentHistory, type AssessmentHistory } from '../logic/learningStats';
 import { touchStreak, type Streak } from '../logic/progress';
 import { gradeFrom, newCard, schedule } from '../logic/srs';
 import type { ExamAttempt, Grade, Lang, Question, SrsCard } from '../types';
 
 export type QuizResult = LearningQuizResult;
-interface ProgressData extends LearningProgress {
+interface ProgressData extends LearningProgress, AssessmentHistory {
   attempts: ExamAttempt[]; active: ExamAttempt | null; cards: Record<string, SrsCard>; bookmarks: Bookmarks;
   streak: Streak; studyMs: number; lastRoute: string | null;
 }
@@ -21,15 +23,16 @@ interface ProgressState extends ProgressData {
   recordQuiz: (key: string, correct: number, total: number, lang?: Lang) => void;
   setActive: (attempt: ExamAttempt | null) => void;
   finishExam: (attempt: ExamAttempt) => void;
-  review: (q: Question, grade: Grade) => void;
-  feedMistake: (q: Question, correct: boolean) => void;
+  recordAssessment: (q: Question, correct: boolean, context: AssessmentContext) => void;
+  review: (q: Question, grade: Grade, context?: AssessmentContext) => void;
+  feedMistake: (q: Question, correct: boolean, context?: AssessmentContext) => void;
   toggleBookmark: (q: Question) => void;
   removeBookmark: (conceptId: string) => void;
   addStudyTime: (ms: number) => void;
   setLastRoute: (route: string) => void;
   resetAll: () => void;
 }
-const initial = (): ProgressData => ({ ...initialLearning(), attempts: [], active: null, cards: {}, bookmarks: {}, streak: { count: 0, best: 0, lastDay: null }, studyMs: 0, lastRoute: null });
+const initial = (): ProgressData => ({ ...initialLearning(), ...initialAssessmentHistory(), attempts: [], active: null, cards: {}, bookmarks: {}, streak: { count: 0, best: 0, lastDay: null }, studyMs: 0, lastRoute: null });
 export const useProgress = create<ProgressState>()(persist<ProgressState, [], [], ProgressData>((set, get) => ({
   ...initial(),
   startLesson: (id) => set((s) => getBundle('en').lessons.some((l) => l.id === id) ? startLesson(s, id, Date.now()) : s),
@@ -42,17 +45,18 @@ export const useProgress = create<ProgressState>()(persist<ProgressState, [], []
     const now = Date.now(); const next = recordLearningQuiz(s, getBundle(lang), key, correct, total, now);
     return next === s ? s : { ...next, streak: touchStreak(s.streak, now) };
   }),
-  setActive: (active) => set({ active }),
+  recordAssessment: (q, correct, context) => set((s) => captureQuestionResponse(s, getBundle('en'), q, correct, context)),
+  setActive: (active) => set((s) => ({ active, ...captureExamSelections(s.active, active, getBundle(active?.lang ?? 'en'), s, Date.now()) })),
   finishExam: (attempt) => set((s) => ({ attempts: [...s.attempts.filter((a) => a.id !== attempt.id), attempt], active: null, streak: touchStreak(s.streak, Date.now()) })),
-  review: (q, grade) => set((s) => { const now = Date.now(); const card = s.cards[q.conceptId] ?? newCard(q.id, q.conceptId, now); return { cards: { ...s.cards, [q.conceptId]: schedule(card, grade, now) }, streak: touchStreak(s.streak, now) }; }),
-  feedMistake: (q, correct) => { if (correct && !get().cards[q.conceptId]) return; get().review(q, gradeFrom(correct, 'know')); },
+  review: (q, grade, context) => set((s) => { const now = Date.now(); const card = s.cards[q.conceptId] ?? newCard(q.id, q.conceptId, now); const history = context ? captureQuestionResponse(s, getBundle('en'), q, context.correct ?? (grade !== 'unknown'), context) : historyData(s); return { ...history, cards: { ...s.cards, [q.conceptId]: schedule(card, grade, now) }, streak: touchStreak(s.streak, now) }; }),
+  feedMistake: (q, correct, context) => { if (context) get().recordAssessment(q, correct, context); if (correct && !get().cards[q.conceptId]) return; get().review(q, gradeFrom(correct, 'know')); },
   toggleBookmark: (q) => set((s) => ({ bookmarks: toggleSaved(s.bookmarks, q, Date.now()) })),
   removeBookmark: (conceptId) => set((s) => { const bookmarks = { ...s.bookmarks }; delete bookmarks[conceptId]; return { bookmarks }; }),
   addStudyTime: (ms) => set((s) => ({ studyMs: s.studyMs + ms })),
   setLastRoute: (lastRoute) => set({ lastRoute }),
   resetAll: () => set(initial()),
 }), {
-  name: 'progress-v1', version: 2, storage: createJSONStorage(() => AsyncStorage),
-  partialize: (s) => ({ lessonsRead: s.lessonsRead, lessonsStarted: s.lessonsStarted, lessonsStudied: s.lessonsStudied, quizResults: s.quizResults, quizBest: s.quizBest, quizPassed: s.quizPassed, attempts: s.attempts, active: s.active, cards: s.cards, bookmarks: s.bookmarks, streak: s.streak, studyMs: s.studyMs, lastRoute: s.lastRoute }),
-  migrate: (persisted) => { const legacy = (persisted ?? {}) as Partial<ProgressData>; return { ...initial(), ...legacy, ...migrateLearning(legacy, [getBundle('en'), getBundle('fr')]) }; },
+  name: 'progress-v1', version: 3, storage: createJSONStorage(() => AsyncStorage),
+  partialize: (s) => ({ ...historyData(s), lessonsRead: s.lessonsRead, lessonsStarted: s.lessonsStarted, lessonsStudied: s.lessonsStudied, quizResults: s.quizResults, quizBest: s.quizBest, quizPassed: s.quizPassed, attempts: s.attempts, active: s.active, cards: s.cards, bookmarks: s.bookmarks, streak: s.streak, studyMs: s.studyMs, lastRoute: s.lastRoute }),
+  migrate: (persisted, version) => { const legacy = (persisted ?? {}) as Partial<ProgressData>; const completion = version < 2 ? migrateLearning(legacy, [getBundle('en'), getBundle('fr')]) : {}; return migrateCapturedProgress(initial(), { ...legacy, ...completion }); },
 }));
