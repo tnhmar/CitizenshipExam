@@ -10,7 +10,9 @@ import { ScoreRing } from '../../src/components/ScoreRing';
 import { StatCard } from '../../src/components/StatCard';
 import { useBundle } from '../../src/content/useBundle';
 import { useHomeLearningText } from '../../src/i18n/homeLearning';
+import { useNextStepText } from '../../src/i18n/nextStep';
 import { bookmarkQuestions } from '../../src/logic/bookmarks';
+import { assessmentIds } from '../../src/logic/completion';
 import { snapshot } from '../../src/logic/dashboardStats';
 import { homeExamDate, homePercent, homeStep } from '../../src/logic/homePresentation';
 import { currentStreak } from '../../src/logic/progress';
@@ -20,7 +22,7 @@ import { useSettings } from '../../src/store/settings';
 
 const stamp = (): number => Date.now();
 export default function Home() {
-  const { t, i18n } = useTranslation(); const text = useHomeLearningText();
+  const { t, i18n } = useTranslation(); const text = useHomeLearningText(); const nextText = useNextStepText();
   const router = useRouter(); const theme = useTheme(); const insets = useSafeAreaInsets();
   const bundle = useBundle(); const progress = useProgress(); const examDate = useSettings((s) => s.examDate);
   const [now, setNow] = useState(stamp);
@@ -32,6 +34,12 @@ export default function Home() {
   }, []));
   const data = useMemo(() => snapshot(bundle, progress, now), [bundle, progress, now]);
   const step = homeStep(data.nextAction, bundle); const date = homeExamDate(examDate, now);
+  const alternative = data.nextAlternative ? homeStep(data.nextAlternative.action, bundle) : null;
+  const recommendedLesson = bundle.lessons.find((lesson) => lesson.id === data.nextAction.lessonId);
+  const recommendedChapter = bundle.chapters.find((chapter) => chapter.id === recommendedLesson?.chapterId);
+  const canValidate = data.nextAction.kind !== 'finishChapter' || assessmentIds(bundle, `chapter:${data.nextAction.chapterId}`).length > 0;
+  const actionLabel = data.nextAction.kind === 'finishChapter' ? canValidate ? nextText.finishChapter : nextText.openChapter : data.nextAction.kind === 'startLearning' ? recommendedChapter?.lessonIds[0] === recommendedLesson?.id ? nextText.startChapter : nextText.startLesson : text.actions[data.nextAction.kind];
+  const reason = canValidate ? nextText.reasons[data.nextAction.kind] : nextText.quizUnavailable;
   const dateLabel = date.kind === 'unset' ? t('homeUi.setDate') : date.kind === 'past' ? t('homeUi.testPassed') : date.kind === 'today' ? t('homeUi.testToday') : t('homeUi.testIn', { count: date.days ?? 0 });
   const saved = bookmarkQuestions(bundle, progress.bookmarks).length; const streakDays = currentStreak(progress.streak, now);
   const completion = data.completion; const white = theme.colors.onPrimary;
@@ -47,8 +55,14 @@ export default function Home() {
       <View style={styles.heroBody}><ScoreRing value={completionPercent} label={`${completion.lessonsCompleted}/${completion.lessonsTotal}`} size={120} color={white} trackColor={theme.colors.primaryContainer} textColor={white} /><View style={styles.grow}><Text variant='titleMedium' style={[styles.strong, { color: white }]}>{text.completion}</Text><Text variant='bodyMedium' style={{ color: white }}>{text.lessonsCompleted}: {completion.lessonsCompleted}/{completion.lessonsTotal}</Text><Text variant='bodyMedium' style={{ color: white }}>{text.chaptersCompleted}: {completion.chaptersCompleted}/{completion.chaptersTotal}</Text><Text variant='bodySmall' style={{ color: white }}>{text.inProgress}: {completion.lessonsInProgress}</Text></View></View>
       <Text variant='bodySmall' style={{ color: white }}>{text.completionHint}</Text>
       <Text variant='labelLarge' style={{ color: white }}>{text.next}</Text>
-      <Pressable accessibilityRole='button' accessibilityLabel={text.actions[data.nextAction.kind]} onPress={() => open(step.route)} style={styles.mainCta}><Text style={[styles.centerText, styles.strong, { color: theme.colors.primary, fontSize: 16 }]}>{text.actions[data.nextAction.kind]}</Text></Pressable>
-      {step.subject ? <Text variant='bodySmall' style={[styles.centerText, { color: white }]}>{step.subject}</Text> : null}
+      <Pressable accessibilityRole='button' accessibilityLabel={actionLabel} onPress={() => open(step.route)} style={styles.mainCta}><Text style={[styles.centerText, styles.strong, { color: theme.colors.primary, fontSize: 16 }]}>{actionLabel}</Text></Pressable>
+      {step.subject ? <Text variant='bodySmall' style={[styles.centerText, { color: white }]}>{recommendedChapter ? `${recommendedChapter.title} · ${step.subject}` : step.subject}</Text> : null}
+      <Text variant='bodySmall' style={[styles.centerText, { color: white }]}>{reason}</Text>
+      {data.nextAlternative && alternative ? <View style={styles.alternative}>
+        {data.nextAction.kind === 'resumeExam' ? <Text variant='bodySmall' style={[styles.centerText, { color: white }]}>{nextText.examWarning}</Text> : null}
+        <Button mode='text' textColor={white} onPress={() => open(alternative.route)}>{nextText[data.nextAlternative.label]}</Button>
+        {alternative.subject && alternative.subject !== step.subject ? <Text variant='bodySmall' style={[styles.centerText, { color: white }]}>{alternative.subject}</Text> : null}
+      </View> : null}
     </View>
     <View style={styles.body}>
       {bundle.sample ? <Panel tone='warning'><Text>{t('common.sampleBanner')}</Text></Panel> : null}
@@ -86,4 +100,4 @@ export default function Home() {
     </View>
   </ScrollView>;
 }
-const styles = StyleSheet.create({ content: { paddingBottom: 24, gap: 16 }, hero: { paddingHorizontal: 20, paddingBottom: 24, gap: 16, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' }, leaf: { position: 'absolute', right: -20, top: 70, fontSize: 170, opacity: 0.12 }, heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 }, heroBody: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 }, gear: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FDE3E3', alignItems: 'center', justifyContent: 'center' }, mainCta: { backgroundColor: '#FFFFFF', minHeight: 52, padding: 16, borderRadius: 26, justifyContent: 'center' }, body: { paddingHorizontal: 16, gap: 16 }, strong: { fontWeight: '700' }, row: { flexDirection: 'row', gap: 12 }, grow: { flex: 1, gap: 4 }, tile: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 20 }, tileIcon: { fontSize: 30 }, centerText: { textAlign: 'center' }, between: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 4 }, value: { flexShrink: 1, textAlign: 'right' }, examRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 }, examScore: { alignItems: 'flex-end', gap: 4 } });
+const styles = StyleSheet.create({ content: { paddingBottom: 24, gap: 16 }, hero: { paddingHorizontal: 20, paddingBottom: 24, gap: 16, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' }, leaf: { position: 'absolute', right: -20, top: 70, fontSize: 170, opacity: 0.12 }, heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 }, heroBody: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 }, gear: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FDE3E3', alignItems: 'center', justifyContent: 'center' }, mainCta: { backgroundColor: '#FFFFFF', minHeight: 52, padding: 16, borderRadius: 26, justifyContent: 'center' }, alternative: { gap: 4 }, body: { paddingHorizontal: 16, gap: 16 }, strong: { fontWeight: '700' }, row: { flexDirection: 'row', gap: 12 }, grow: { flex: 1, gap: 4 }, tile: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 20 }, tileIcon: { fontSize: 30 }, centerText: { textAlign: 'center' }, between: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 4 }, value: { flexShrink: 1, textAlign: 'right' }, examRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 }, examScore: { alignItems: 'flex-end', gap: 4 } });
