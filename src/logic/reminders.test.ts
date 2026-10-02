@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import type { SrsCard } from '../types';
-import { planReminders, parseReminderTime, reminderDestination, REMINDER_OWNER, type ReminderPrefs } from './reminders';
+import { planReminders, parseReminderTime, registeredReminder, reminderDestination, reminderIdTimestamp, upcomingReminders, REMINDER_OWNER, REMINDER_PREFIX, type ReminderPrefs } from './reminders';
 
 const now = new Date(2026, 9, 1, 12).getTime();
 const prefs: ReminderPrefs = { enabled: true, study: true, review: true, exam: true, time: '20:00' };
@@ -47,5 +47,31 @@ describe('local reminder plan', () => {
     expect(reminderDestination({ owner: REMINDER_OWNER, route: 'https://example.com' })).toBeNull();
     expect(reminderDestination({ route: '/review' })).toBeNull();
     expect(reminderDestination(null)).toBeNull();
+  });
+  test('choosing the current minute schedules tomorrow, never a past trigger', () => {
+    const at = new Date(2026, 9, 1, 20, 0, 10).getTime();
+    const first = planReminders(prefs, [], null, at)[0];
+    expect(new Date(first.at).getDate()).toBe(2);
+    expect(first.at).toBeGreaterThan(at);
+  });
+});
+
+describe('reminder schedule readback', () => {
+  test('parses only valid owned dated identifiers', () => {
+    expect(reminderIdTimestamp(`${REMINDER_PREFIX}1759874400000`)).toBe(1759874400000);
+    for (const suffix of ['test', 'test-date', 'abc', '', '0', '-1', '1e3', '9007199254740992']) expect(reminderIdTimestamp(`${REMINDER_PREFIX}${suffix}`)).toBeNull();
+    expect(reminderIdTimestamp('other-1759874400000')).toBeNull();
+  });
+  test('sorts future previews without mutating the input', () => {
+    const items = [{ at: now + 2000 }, { at: now - 1 }, { at: now + 1000 }, { at: NaN }];
+    expect(upcomingReminders(items, now, 2).map((item) => item.at)).toEqual([now + 1000, now + 2000]);
+    expect(items[0].at).toBe(now + 2000);
+    for (const limit of [0, -1, NaN]) expect(upcomingReminders(items, now, limit)).toEqual([]);
+  });
+  test('readback requires ownership and sanitizes category data', () => {
+    const request = { identifier: `${REMINDER_PREFIX}${now + 1000}`, content: { title: 'Lesson', data: { owner: REMINDER_OWNER, route: '/learn', kinds: ['study', 'invalid', 'study'] } } };
+    expect(registeredReminder(request)).toMatchObject({ at: now + 1000, title: 'Lesson', route: '/learn', kinds: ['study'] });
+    expect(registeredReminder({ ...request, content: { data: { route: '/learn' } } })).toBeNull();
+    expect(registeredReminder({ ...request, identifier: `${REMINDER_PREFIX}test-date` })).toBeNull();
   });
 });

@@ -1,20 +1,30 @@
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { getBundle } from '../content/loader';
 import i18n, { deviceLang } from '../i18n';
 import { reminderCopy } from '../i18n/reminderCopy';
 import { contextualReminderTask, reminderVariant, type ReminderTask } from '../logic/contextualReminders';
 import { assessmentIds } from '../logic/completion';
 import { conceptPool, reviewWorkload } from '../logic/learningStats';
-import { planReminders, parseReminderTime, reminderDestination, reminderWindowEnd, REMINDER_OWNER, REMINDER_PREFIX, type PlannedReminder, type ReminderKind } from '../logic/reminders';
+import { planReminders, parseReminderTime, registeredReminder, reminderDestination, upcomingReminders, REMINDER_OWNER, REMINDER_PREFIX, TEST_DATE_SUFFIX, TEST_SUFFIX, type PlannedReminder, type RegisteredReminder, type ReminderKind } from '../logic/reminders';
 import { useProgress } from '../store/progress';
 import { useReminderSettings } from '../store/reminders';
 import { useSettings } from '../store/settings';
 
-const CHANNEL = 'study-reminders'; const TEST_ID = `${REMINDER_PREFIX}test`; const VERSION = 'contextual-v2';
-let queue: Promise<void> = Promise.resolve();
+const CHANNEL = 'study-reminders';
+const TEST_ID = `${REMINDER_PREFIX}${TEST_SUFFIX}`;
+const TEST_DATE_ID = `${REMINDER_PREFIX}${TEST_DATE_SUFFIX}`;
+const VERSION = 'contextual-v2';
+let queue: Promise<unknown> = Promise.resolve();
+function exclusive<T>(action: () => Promise<T>): Promise<T> {
+  const task = queue.catch(() => undefined).then(action);
+  queue = task;
+  return task;
+}
 if (Platform.OS !== 'web') Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }) });
 const allowed = (p: Notifications.NotificationPermissionsStatus) => p.granted || p.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+const message = (error: unknown): string => error instanceof Error ? error.message : String(error);
 const fill = (text: string, values: Record<string, string | number | undefined>) => text.replace(/{{(\w+)}}/g, (_match, key: string) => String(values[key] ?? ''));
 function selectTask(kinds: ReminderKind[], at: number, daysBefore?: number): ReminderTask | null {
   const settings = useSettings.getState(); const prefs = useReminderSettings.getState().prefs;
@@ -55,21 +65,73 @@ export async function requestReminderPermission(): Promise<boolean> {
   if (!allowed(permission)) useReminderSettings.getState().setReport({ status: 'blocked', count: 0, nextAt: null, until: null, error: null });
   return allowed(permission);
 }
+export interface ReminderDiagnostics {
+  notificationsAllowed: boolean | null;
+  channelEnabled: boolean | null;
+  exactAlarmDeclared: boolean;
+  exactAlarmAccess: 'unverified' | 'notApplicable';
+}
+export async function getReminderDiagnostics(): Promise<ReminderDiagnostics> {
+  const androidAlarms = Platform.OS === 'android' && Number(Platform.Version) >= 31;
+  const permissions = Constants.expoConfig?.android?.permissions ?? [];
+  const diagnostics: ReminderDiagnostics = {
+    notificationsAllowed: null, channelEnabled: null,
+    exactAlarmDeclared: permissions.some((permission) => permission === 'android.permission.SCHEDULE_EXACT_ALARM' || permission === 'SCHEDULE_EXACT_ALARM'),
+    exactAlarmAccess: androidAlarms ? 'unverified' : 'notApplicable',
+  };
+  if (Platform.OS === 'web') return diagnostics;
+  diagnostics.notificationsAllowed = allowed(await Notifications.getPermissionsAsync());
+  if (Platform.OS === 'android' && Number(Platform.Version) >= 26) {
+    const value = await Notifications.getNotificationChannelAsync(CHANNEL);
+    diagnostics.channelEnabled = value === null ? null : value.importance !== Notifications.AndroidImportance.NONE;
+  }
+  // Expo's notification permission response does not expose AlarmManager.canScheduleExactAlarms().
+  return diagnostics;
+}
+export async function openReminderAlarmSettings(): Promise<void> {
+  if (Platform.OS !== 'android' || Number(Platform.Version) < 31) { await Linking.openSettings(); return; }
+  const packageName = Constants.expoConfig?.android?.package;
+  try {
+    await Linking.sendIntent('android.settings.REQUEST_SCHEDULE_EXACT_ALARM', packageName ? [{ key: 'android.provider.extra.APP_PACKAGE', value: packageName }] : []);
+  } catch { await Linking.openSettings(); }
+}
+export async function readScheduledReminders(): Promise<RegisteredReminder[]> {
+  if (Platform.OS === 'web') return [];
+  const requests = await Notifications.getAllScheduledNotificationsAsync();
+  const rows = requests.map(registeredReminder).filter((row): row is RegisteredReminder => row !== null);
+  return upcomingReminders(rows, Date.now(), rows.length);
+}
+async function scheduleDatedReminder(identifier: string, content: Notifications.NotificationContentInput, at: number): Promise<string> {
+  if (!Number.isFinite(at) || at <= Date.now()) throw new Error('Reminder time must be in the future');
+  const trigger = { type: Notifications.SchedulableTriggerInputTypes.DATE as const, date: new Date(at), channelId: CHANNEL };
+  const nextAt = await Notifications.getNextTriggerDateAsync(trigger);
+  if (nextAt === null || Math.abs(nextAt - at) > 1000) throw new Error('The device could not resolve the requested reminder time');
+  return Notifications.scheduleNotificationAsync({ identifier, content, trigger });
+}
 async function reconcile(): Promise<void> {
   const report = useReminderSettings.getState().setReport;
   if (Platform.OS === 'web') { report({ status: 'unsupported', count: 0, nextAt: null, until: null, error: null }); return; }
   try {
     const settings = useSettings.getState(); const prefs = useReminderSettings.getState().prefs;
-    const lang = settings.lang ?? deviceLang(); const existing = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(REMINDER_PREFIX));
-    if (!prefs.enabled || !settings.onboarded) { for (const n of existing) await Notifications.cancelScheduledNotificationAsync(n.identifier); report({ status: 'off', count: 0, nextAt: null, until: null, error: null }); return; }
-    if (!allowed(await Notifications.getPermissionsAsync())) { for (const n of existing) await Notifications.cancelScheduledNotificationAsync(n.identifier); report({ status: 'blocked', count: 0, nextAt: null, until: null, error: null }); return; }
+    const lang = settings.lang ?? deviceLang();
+    const existing = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(REMINDER_PREFIX));
+    if (!prefs.enabled || !settings.onboarded || !allowed(await Notifications.getPermissionsAsync())) {
+      for (const n of existing) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+      report({ status: !prefs.enabled || !settings.onboarded ? 'off' : 'blocked', count: 0, nextAt: null, until: null, error: null, cancelled: existing.length, created: 0, failed: 0, upcoming: [], verifiedAt: Date.now() });
+      return;
+    }
     if (!parseReminderTime(prefs.time)) throw new Error('Invalid reminder time');
     await channel(); const now = Date.now(); const bundle = getBundle(lang); const pool = conceptPool(bundle);
     const cards = Object.values(useProgress.getState().cards).filter((c) => pool.has(c.conceptId));
     const notices: { item: PlannedReminder; task: ReminderTask }[] = [];
     for (const item of planReminders(prefs, cards, settings.examDate, now)) { const task = selectTask(item.kinds, item.at, item.daysBefore); if (task) notices.push({ item, task }); }
     const ids = new Set(notices.map((n) => n.item.id));
-    for (const n of existing) if (n.identifier !== TEST_ID && !ids.has(n.identifier)) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    let created = 0; let cancelled = 0; const failures = new Set<string>(); const errors: string[] = [];
+    for (const n of existing) {
+      if (n.identifier === TEST_ID || n.identifier === TEST_DATE_ID || ids.has(n.identifier)) continue;
+      try { await Notifications.cancelScheduledNotificationAsync(n.identifier); cancelled += 1; }
+      catch (error) { errors.push(`Cancel ${n.identifier}: ${message(error)}`); }
+    }
     const copy = reminderCopy(lang);
     for (const { item, task } of notices) {
       const index = reminderVariant(Math.floor(item.at / 86400000), task.kind); const countdown = task.daysBefore !== undefined;
@@ -77,20 +139,49 @@ async function reconcile(): Promise<void> {
       const template = (countdown ? copy.examSoonBodies[index] : copy.taskBodies[task.kind][index]) ?? '';
       const body = fill(template, { days: task.daysBefore, chapter: task.chapterTitle, lesson: task.lessonTitle, minutes: settings.dailyGoalMin });
       const route = task.route.startsWith('/exams') ? '/exams' : task.kind === 'review' ? '/review' : '/learn';
-      const data = { owner: REMINDER_OWNER, route, version: VERSION, kinds: item.kinds, intent: countdown ? 'countdown' : task.kind };
-      const content = { title, body, sound: 'default', data };
+      const data = { owner: REMINDER_OWNER, route, version: VERSION, kinds: item.kinds, intent: countdown ? 'countdown' : task.kind, scheduledAt: item.at };
       const old = existing.find((n) => n.identifier === item.id);
-      if (old && old.content.title === title && old.content.body === body && old.content.data?.route === route && old.content.data?.version === VERSION && JSON.stringify(old.content.data?.kinds) === JSON.stringify(item.kinds) && old.content.data?.intent === data.intent) continue;
-      if (old) await Notifications.cancelScheduledNotificationAsync(old.identifier);
-      await Notifications.scheduleNotificationAsync({ identifier: item.id, content, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(item.at), channelId: CHANNEL } });
+      if (old && old.content.title === title && old.content.body === body && old.content.data?.route === route && old.content.data?.version === VERSION && old.content.data?.scheduledAt === item.at && JSON.stringify(old.content.data?.kinds) === JSON.stringify(item.kinds) && old.content.data?.intent === data.intent) continue;
+      try {
+        await scheduleDatedReminder(item.id, { title, body, sound: 'default', data }, item.at);
+        created += 1;
+      } catch (error) { failures.add(item.id); errors.push(`Schedule ${item.id}: ${message(error)}`); }
     }
-    report({ status: 'ready', count: notices.length, nextAt: notices[0]?.item.at ?? null, until: prefs.study || prefs.review ? reminderWindowEnd(prefs.time, now) : null, error: null });
-  } catch (error) { report({ status: 'error', count: 0, nextAt: null, until: null, error: error instanceof Error ? error.message : String(error) }); throw error; }
+    const accepted = await readScheduledReminders();
+    const verifiedAt = Date.now();
+    const planned = notices.filter((n) => n.item.at > verifiedAt);
+    const acceptedIds = new Set(accepted.map((n) => n.id));
+    for (const { item } of planned) if (!acceptedIds.has(item.id) && !failures.has(item.id)) { failures.add(item.id); errors.push(`Not registered on device: ${item.id}`); }
+    const registered = accepted.filter((n) => ids.has(n.id));
+    const stale = accepted.filter((n) => !ids.has(n.id));
+    if (stale.length) errors.push(`${stale.length} obsolete reminder(s) remain registered`);
+    report({
+      status: errors.length ? 'error' : 'ready', count: registered.length, nextAt: registered[0]?.at ?? null,
+      until: prefs.study || prefs.review ? Math.max(0, ...registered.filter((n) => n.kinds.includes('study') || n.kinds.includes('review')).map((n) => n.at)) || null : null,
+      error: errors.length ? errors.slice(0, 5).join('\n') : null,
+      upcoming: upcomingReminders(registered, verifiedAt, 3), created, cancelled, failed: failures.size, planned: planned.length, verifiedAt,
+    });
+  } catch (error) {
+    report({ status: 'error', count: 0, nextAt: null, until: null, error: message(error) });
+    throw error;
+  }
 }
-export function syncReminders(): Promise<void> { const task = queue.catch(() => undefined).then(reconcile); queue = task; return task; }
-export async function testReminder(): Promise<void> {
-  if (!await requestReminderPermission()) throw new Error('Notification permission denied');
-  const lang = useSettings.getState().lang ?? deviceLang(); const t = i18n.getFixedT(lang);
-  await Notifications.cancelScheduledNotificationAsync(TEST_ID);
-  await Notifications.scheduleNotificationAsync({ identifier: TEST_ID, content: { title: t('remindersUi.notificationTitle'), body: t('remindersUi.testBody'), sound: 'default', data: { owner: REMINDER_OWNER, route: '/' } }, trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, channelId: CHANNEL } });
+export function syncReminders(): Promise<void> { return exclusive(reconcile); }
+export function scheduledTestReminder(): Promise<number> {
+  return exclusive(async () => {
+    if (!await requestReminderPermission()) throw new Error('Notification permission denied');
+    const lang = useSettings.getState().lang ?? deviceLang(); const t = i18n.getFixedT(lang);
+    const at = Date.now() + 60000;
+    await scheduleDatedReminder(TEST_DATE_ID, { title: t('remindersUi.notificationTitle'), body: t('remindersUi.testDateBody'), sound: 'default', data: { owner: REMINDER_OWNER, route: '/', scheduledAt: at } }, at);
+    const registered = await Notifications.getAllScheduledNotificationsAsync();
+    if (!registered.some((n) => n.identifier === TEST_DATE_ID)) throw new Error('Scheduled test was not registered on the device');
+    return at;
+  });
+}
+export function testReminder(): Promise<void> {
+  return exclusive(async () => {
+    if (!await requestReminderPermission()) throw new Error('Notification permission denied');
+    const lang = useSettings.getState().lang ?? deviceLang(); const t = i18n.getFixedT(lang);
+    await Notifications.scheduleNotificationAsync({ identifier: TEST_ID, content: { title: t('remindersUi.notificationTitle'), body: t('remindersUi.testBody'), sound: 'default', data: { owner: REMINDER_OWNER, route: '/' } }, trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, channelId: CHANNEL } });
+  });
 }
