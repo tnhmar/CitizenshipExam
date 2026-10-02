@@ -40,7 +40,10 @@ export function ReminderSettings() {
     const listener = AppState.addEventListener('change', (state) => { if (state === 'active') void load(); });
     return () => { mounted.current = false; readVersion.current += 1; listener.remove(); };
   }, [load]);
-  useEffect(() => { void load(); }, [load, report]);
+  useEffect(() => {
+    const timer = setTimeout(() => { void load(); }, 0);
+    return () => { clearTimeout(timer); readVersion.current += 1; };
+  }, [load, report]);
   const run = async (action: () => Promise<void>) => {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true);
