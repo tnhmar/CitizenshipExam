@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Panel } from '../../src/components/Panel';
 import { ScoreRing } from '../../src/components/ScoreRing';
 import { StatCard } from '../../src/components/StatCard';
+import { StudyStreakCard } from '../../src/components/StudyStreakCard';
 import { useBundle } from '../../src/content/useBundle';
 import { useHomeFocusText } from '../../src/i18n/homeFocus';
 import { useHomeLearningText } from '../../src/i18n/homeLearning';
@@ -14,7 +15,6 @@ import { useNextStepText } from '../../src/i18n/nextStep';
 import { snapshot } from '../../src/logic/dashboardStats';
 import { completionPreviewPercent, homeFocusTarget } from '../../src/logic/homeFocus';
 import { homeExamDate, homeStep } from '../../src/logic/homePresentation';
-import { currentStreak } from '../../src/logic/progress';
 import { needsTabAnchor } from '../../src/navigation/tabRoots';
 import { useProgress } from '../../src/store/progress';
 import { useSettings } from '../../src/store/settings';
@@ -40,7 +40,6 @@ export default function Home() {
   const reason = target.canValidate ? nextText.reasons[data.nextAction.kind] : nextText.quizUnavailable;
   const date = homeExamDate(examDate, now);
   const dateLabel = date.kind === 'unset' ? t('homeUi.setDate') : date.kind === 'past' ? t('homeUi.testPassed') : date.kind === 'today' ? t('homeUi.testToday') : t('homeUi.testIn', { count: date.days ?? 0 });
-  const streakDays = currentStreak(progress.streak, now);
   const completion = data.completion;
   const percent = completionPreviewPercent(completion.lessonsCompleted, completion.lessonsTotal);
   const open = (route: string) => router.push(route, { withAnchor: needsTabAnchor(route) });
@@ -67,7 +66,7 @@ export default function Home() {
       <View style={styles.today}>
         <View style={styles.todayItem}><StatCard icon='🔄' value={String(data.review.due)} label={t('homeUi.dueLabel')} onPress={() => open('/review')} /></View>
         <View style={styles.todayItem}><StatCard icon='📅' value={date.value} label={dateLabel} onPress={() => open('/settings')} /></View>
-        <View style={styles.todayItem}><StatCard icon='🔥' value={String(streakDays)} label={t('homeUi.streakLabel', { count: streakDays })} tone={streakDays > 0 ? 'warning' : 'default'} /></View>
+        <View style={styles.todayItem}><StudyStreakCard streak={progress.streak} now={now} legacySaved={progress.legacyActivityStreak !== null} /></View>
       </View>
     </View>
     <Panel>
