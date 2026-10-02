@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { makeBundle } from '../test-utils/fixtures';
-import type { ExamAttempt } from '../types';
+import type { ContentBundle, ExamAttempt } from '../types';
 import { initialLearning } from './completion';
 import { initialAssessmentHistory, type AssessmentEvent } from './learningStats';
 import { snapshot, type DashboardProgress } from './dashboardStats';
@@ -22,7 +22,7 @@ describe('dashboard snapshot', () => {
     expect(snapshot(b, { ...p(), cards }, now).nextAction).toEqual({ kind: 'reviewDue' });
   });
   test('chapter weakness needs five actual native concepts', () => {
-    const bundle = { ...b, questions: { ...b.questions, 9: { ...b.questions[1], id: 9, conceptId: 'c9' } }, lessons: b.lessons.map((l) => l.id === 10 ? { ...l, questionIds: [...l.questionIds, 9] } : l) };
+    const bundle: ContentBundle = { ...b, questions: { ...b.questions, 9: { ...b.questions[1], id: 9, conceptId: 'c9' } }, lessons: b.lessons.map((l) => l.id === 10 ? { ...l, questionIds: [...l.questionIds, 9] } : l) };
     const assessmentEvents: AssessmentEvent[] = [1, 2, 3, 5, 9].map((id) => ({ id: `e${id}`, sessionId: `s${id}`, questionId: id, conceptId: bundle.questions[id].conceptId, at: now, mode: 'lesson', response: 'objective', correct: false, firstResponse: true, retry: 'none', confidence: null }));
     expect(snapshot(bundle, { ...p(), assessmentEvents }, now).nextAction).toEqual({ kind: 'studyTopic', chapterId: 1 });
   });
