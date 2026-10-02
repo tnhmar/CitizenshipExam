@@ -1,7 +1,8 @@
 export const remindersEn = { remindersUi: {
+  dailyTitle: `Your daily preparation check-in`, dailyBody: `Take {{minutes}} minutes for a focused study step. Tap for the current recommendation.`, dailyReviewBody: `Make time for study or review. Tap to see your current review queue and next learning step.`,
   title: `Notifications and reminders`, enabled: `Enable reminders`, study: `Daily study`, review: `Due review cards`, exam: `Exam: 7, 3 and 1 days before`, time: `Local time (HH:MM)`, saveTime: `Save time`,
   privacy: `Opt-in notifications scheduled on this device. No push token, account or server is needed.`,
-  window: `Study and review reminders cover the next 30 days and refresh when you open the app. Reopen the app within 30 days to keep them running. Exam-date reminders are also scheduled in advance.`,
+  window: `Daily study uses one recurring reminder at your selected local time; it has no 30-day expiry. Review-only mode schedules the next eligible review and refreshes when you open the app or change progress. Exam reminders are scheduled 7, 3 and 1 days before. When daily study is enabled, its message also offers review, so no separate review alert is added. An exam milestone may add a second alert at the same time.`,
   bestEffort: `Delivery may be delayed by battery restrictions or Focus / Do Not Disturb. Registration does not guarantee that an alert will be shown.`,
   off: `Reminders are off.`, ready: `Reminder registration verified.`, blocked: `Notifications are blocked.`, error: `Could not fully update reminders`, unsupported: `Local reminders are available in the Android and iOS app.`,
   permissionHint: `Allow notifications in your device settings, then enable reminders again.`, scheduled: `{{count}} reminders registered on the device`, next: `Next planned time: {{date}}`, until: `Study/review schedule through: {{date}}`,
@@ -19,9 +20,10 @@ export const remindersEn = { remindersUi: {
 } };
 
 export const remindersFr: typeof remindersEn = { remindersUi: {
+  dailyTitle: `Votre rendez-vous quotidien de préparation`, dailyBody: `Prenez {{minutes}} minutes pour une étape ciblée. Touchez pour la recommandation actuelle.`, dailyReviewBody: `Accordez-vous un moment d'étude ou de révision. Touchez pour voir les révisions et la prochaine étape actuelles.`,
   title: `Notifications et rappels`, enabled: `Activer les rappels`, study: `Étude quotidienne`, review: `Cartes à réviser`, exam: `Examen : 7, 3 et 1 jours avant`, time: `Heure locale (HH:MM)`, saveTime: `Enregistrer l'heure`,
   privacy: `Notifications facultatives programmées sur cet appareil. Aucun jeton push, compte ou serveur n'est nécessaire.`,
-  window: `Les rappels d'étude et de révision couvrent les 30 prochains jours et sont renouvelés à l'ouverture de l'application. Rouvrez-la avant 30 jours pour les maintenir. Les rappels de date d'examen sont aussi programmés à l'avance.`,
+  window: `L'étude utilise un rappel quotidien récurrent à l'heure choisie, sans expiration après 30 jours. Le mode révision seule programme la prochaine révision admissible et se renouvelle à l'ouverture ou après un changement de progression. Les rappels d'examen sont prévus 7, 3 et 1 jours avant. Avec l'étude quotidienne, le message propose aussi la révision ; aucun rappel de révision séparé n'est ajouté. Un jalon d'examen peut ajouter une deuxième alerte à la même heure.`,
   bestEffort: `La batterie et les modes Concentration / Ne pas déranger peuvent retarder l'envoi. L'enregistrement ne garantit pas l'affichage d'une alerte.`,
   off: `Les rappels sont désactivés.`, ready: `Enregistrement des rappels vérifié.`, blocked: `Les notifications sont bloquées.`, error: `Mise à jour des rappels incomplète`, unsupported: `Les rappels locaux sont disponibles dans l'application Android et iOS.`,
   permissionHint: `Autorisez les notifications dans les réglages de votre appareil, puis réactivez les rappels.`, scheduled: `{{count}} rappels enregistrés sur l'appareil`, next: `Prochaine heure prévue : {{date}}`, until: `Étude/révision programmée jusqu'au : {{date}}`,

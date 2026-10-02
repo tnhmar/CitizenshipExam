@@ -7,7 +7,8 @@ import { reminderCopy } from '../i18n/reminderCopy';
 import { contextualReminderTask, reminderVariant, type ReminderTask } from '../logic/contextualReminders';
 import { assessmentIds } from '../logic/completion';
 import { conceptPool, reviewWorkload } from '../logic/learningStats';
-import { planReminders, parseReminderTime, registeredReminder, reminderDestination, upcomingReminders, REMINDER_OWNER, REMINDER_PREFIX, TEST_DATE_SUFFIX, TEST_SUFFIX, type PlannedReminder, type RegisteredReminder, type ReminderKind } from '../logic/reminders';
+import { parseReminderTime, registeredReminder, reminderDestination, upcomingReminders, REMINDER_OWNER, REMINDER_PREFIX, TEST_DATE_SUFFIX, TEST_SUFFIX, type PlannedReminder, type RegisteredReminder, type ReminderKind } from '../logic/reminders';
+import { DAILY_REMINDER_ID, hybridReminderPlan } from '../logic/hybridReminders';
 import { useProgress } from '../store/progress';
 import { useReminderSettings } from '../store/reminders';
 import { useSettings } from '../store/settings';
@@ -50,6 +51,7 @@ export function resolveReminderDestination(data: unknown): string | null {
   const active = useProgress.getState().active;
   if (active && active.finishedAt === null && active.startedAt + active.limitMs > Date.now() && getBundle(active.lang).exams.some((e) => e.id === active.examId)) return `/exams/${active.examId}`;
   if (value.intent === 'countdown' && prefs.exam) return '/exams';
+  if (value.intent === 'daily') return selectTask(prefs.review ? ['study', 'review'] : ['study'], Date.now())?.route ?? '/';
   const kinds = Array.isArray(value.kinds) ? value.kinds.filter((kind): kind is ReminderKind => kind === 'study' || kind === 'review' || kind === 'exam') : [];
   return selectTask(kinds, Date.now())?.route ?? '/';
 }
@@ -95,10 +97,28 @@ export async function openReminderAlarmSettings(): Promise<void> {
     await Linking.sendIntent('android.settings.REQUEST_SCHEDULE_EXACT_ALARM', packageName ? [{ key: 'android.provider.extra.APP_PACKAGE', value: packageName }] : []);
   } catch { await Linking.openSettings(); }
 }
+function dailyTrigger(time: string): Notifications.DailyTriggerInput {
+  const clock = parseReminderTime(time);
+  if (!clock) throw new Error('Invalid daily reminder time');
+  return { type: Notifications.SchedulableTriggerInputTypes.DAILY, ...clock, channelId: CHANNEL };
+}
 export async function readScheduledReminders(): Promise<RegisteredReminder[]> {
   if (Platform.OS === 'web') return [];
   const requests = await Notifications.getAllScheduledNotificationsAsync();
-  const rows = requests.map(registeredReminder).filter((row): row is RegisteredReminder => row !== null);
+  const rows: RegisteredReminder[] = [];
+  for (const request of requests) {
+    if (request.identifier === DAILY_REMINDER_ID && reminderDestination(request.content.data) !== null) {
+      const data = request.content.data as { dailyTime?: unknown; kinds?: unknown };
+      if (typeof data.dailyTime !== 'string' || !parseReminderTime(data.dailyTime)) continue;
+      const at = await Notifications.getNextTriggerDateAsync(dailyTrigger(data.dailyTime));
+      if (at === null) throw new Error('Could not resolve the next recurring reminder');
+      const kinds: ReminderKind[] = Array.isArray(data.kinds) && data.kinds.includes('review') ? ['study', 'review'] : ['study'];
+      rows.push({ id: request.identifier, at, title: request.content.title ?? '', route: '/learn', kinds });
+    } else {
+      const row = registeredReminder(request);
+      if (row) rows.push(row);
+    }
+  }
   return upcomingReminders(rows, Date.now(), rows.length);
 }
 async function scheduleDatedReminder(identifier: string, content: Notifications.NotificationContentInput, at: number): Promise<string> {
@@ -123,9 +143,11 @@ async function reconcile(): Promise<void> {
     if (!parseReminderTime(prefs.time)) throw new Error('Invalid reminder time');
     await channel(); const now = Date.now(); const bundle = getBundle(lang); const pool = conceptPool(bundle);
     const cards = Object.values(useProgress.getState().cards).filter((c) => pool.has(c.conceptId));
+    const plan = hybridReminderPlan(prefs, cards, settings.examDate, now);
     const notices: { item: PlannedReminder; task: ReminderTask }[] = [];
-    for (const item of planReminders(prefs, cards, settings.examDate, now)) { const task = selectTask(item.kinds, item.at, item.daysBefore); if (task) notices.push({ item, task }); }
+    for (const item of plan.dated) { const task = selectTask(item.kinds, item.at, item.daysBefore); if (task) notices.push({ item, task }); }
     const ids = new Set(notices.map((n) => n.item.id));
+    if (plan.daily) ids.add(DAILY_REMINDER_ID);
     let created = 0; let cancelled = 0; const failures = new Set<string>(); const errors: string[] = [];
     for (const n of existing) {
       if (n.identifier === TEST_ID || n.identifier === TEST_DATE_ID || ids.has(n.identifier)) continue;
@@ -133,6 +155,23 @@ async function reconcile(): Promise<void> {
       catch (error) { errors.push(`Cancel ${n.identifier}: ${message(error)}`); }
     }
     const copy = reminderCopy(lang);
+    if (plan.daily) {
+      const t = i18n.getFixedT(lang);
+      const title = t('remindersUi.dailyTitle');
+      const body = t(prefs.review ? 'remindersUi.dailyReviewBody' : 'remindersUi.dailyBody', { minutes: settings.dailyGoalMin });
+      const data = { owner: REMINDER_OWNER, route: '/learn', version: VERSION, intent: 'daily', kinds: plan.daily.kinds, dailyTime: prefs.time };
+      const previous = existing.find((n) => n.identifier === DAILY_REMINDER_ID);
+      const unchanged = previous && previous.content.title === title && previous.content.body === body && previous.content.data?.version === VERSION && previous.content.data?.intent === 'daily' && previous.content.data?.dailyTime === prefs.time && JSON.stringify(previous.content.data?.kinds) === JSON.stringify(plan.daily.kinds);
+      if (!unchanged) {
+        try {
+          const trigger = dailyTrigger(prefs.time);
+          const nextAt = await Notifications.getNextTriggerDateAsync(trigger);
+          if (nextAt === null || nextAt <= Date.now()) throw new Error('Daily trigger has no future occurrence');
+          await Notifications.scheduleNotificationAsync({ identifier: DAILY_REMINDER_ID, content: { title, body, sound: 'default', data }, trigger });
+          created += 1;
+        } catch (error) { failures.add(DAILY_REMINDER_ID); errors.push(`Daily study: ${message(error)}`); }
+      }
+    }
     for (const { item, task } of notices) {
       const index = reminderVariant(Math.floor(item.at / 86400000), task.kind); const countdown = task.daysBefore !== undefined;
       const title = (countdown ? copy.examSoonTitles[index] : copy.taskTitles[task.kind][index]) ?? copy.title;
@@ -152,14 +191,15 @@ async function reconcile(): Promise<void> {
     const planned = notices.filter((n) => n.item.at > verifiedAt);
     const acceptedIds = new Set(accepted.map((n) => n.id));
     for (const { item } of planned) if (!acceptedIds.has(item.id) && !failures.has(item.id)) { failures.add(item.id); errors.push(`Not registered on device: ${item.id}`); }
+    if (plan.daily && !acceptedIds.has(DAILY_REMINDER_ID) && !failures.has(DAILY_REMINDER_ID)) { failures.add(DAILY_REMINDER_ID); errors.push('Daily study reminder is not registered'); }
     const registered = accepted.filter((n) => ids.has(n.id));
     const stale = accepted.filter((n) => !ids.has(n.id));
     if (stale.length) errors.push(`${stale.length} obsolete reminder(s) remain registered`);
     report({
       status: errors.length ? 'error' : 'ready', count: registered.length, nextAt: registered[0]?.at ?? null,
-      until: prefs.study || prefs.review ? Math.max(0, ...registered.filter((n) => n.kinds.includes('study') || n.kinds.includes('review')).map((n) => n.at)) || null : null,
+      until: plan.daily ? null : registered.find((n) => n.kinds.includes('review'))?.at ?? null,
       error: errors.length ? errors.slice(0, 5).join('\n') : null,
-      upcoming: upcomingReminders(registered, verifiedAt, 3), created, cancelled, failed: failures.size, planned: planned.length, verifiedAt,
+      upcoming: upcomingReminders(registered, verifiedAt, 3), created, cancelled, failed: failures.size, planned: planned.length + (plan.daily ? 1 : 0), verifiedAt,
     });
   } catch (error) {
     report({ status: 'error', count: 0, nextAt: null, until: null, error: message(error) });
