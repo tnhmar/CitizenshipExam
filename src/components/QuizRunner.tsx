@@ -21,11 +21,12 @@ interface Props {
   questionIds: number[];
   assessmentKey?: string;
   onComplete?: (r: { correct: number; total: number }) => void;
+  resultAction?: { label: string; subject: string; onPress: () => void };
 }
 const stamp = (): number => Date.now();
 const newRun = (): string => assessmentRunId('quiz', stamp(), Math.random().toString(36).slice(2));
 
-export function QuizRunner({ questionIds, assessmentKey, onComplete }: Props) {
+export function QuizRunner({ questionIds, assessmentKey, onComplete, resultAction }: Props) {
   const { t } = useTranslation(); const router = useRouter(); const theme = useTheme(); const bundle = useBundle();
   const reduce = useSettings((s) => s.reduceMotion); const feedMistake = useProgress((s) => s.feedMistake);
   const [ids, setIds] = useState(questionIds); const [seed, setSeed] = useState(stamp);
@@ -55,7 +56,8 @@ export function QuizRunner({ questionIds, assessmentKey, onComplete }: Props) {
     const pct = (correct * 100) / presented.length; const tier = pct >= 80 ? 'quiz.tierHigh' : pct >= 60 ? 'quiz.tierMid' : 'quiz.tierLow';
     const tint = pct >= 80 ? successColor : pct >= 60 ? warningColor : dangerColor;
     return <StudyScreen scrollKey={`results-${seed}`} footer={<>
-      {wrong.length > 0 ? <Button mode='contained' buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => restart(wrong.map((p) => p.question.id), false)}>{t('learn.retryMissed')}</Button> : null}
+      {resultAction ? <View style={styles.nextAction}><Text variant='bodySmall' style={{ textAlign: 'center' }}>{resultAction.subject}</Text><Button mode='contained' buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={resultAction.onPress}>{resultAction.label}</Button></View> : null}
+      {wrong.length > 0 ? <Button mode={resultAction ? 'outlined' : 'contained'} buttonColor={resultAction ? undefined : theme.colors.secondary} textColor={resultAction ? theme.colors.secondary : theme.colors.onSecondary} onPress={() => restart(wrong.map((p) => p.question.id), false)}>{t('learn.retryMissed')}</Button> : null}
       <View style={styles.actions}><Button mode='outlined' style={styles.grow} onPress={() => restart(questionIds, true)}>{t('learn.restart')}</Button><Button style={styles.grow} onPress={() => router.back()}>{t('learn.done')}</Button></View>
     </>}>
       <Panel style={styles.center}><Text variant='titleLarge'>{t('learn.results')}</Text><ScoreRing value={pct} size={150} color={tint} label={`${correct}/${presented.length}`} /><Text variant='titleMedium' style={{ color: tint, textAlign: 'center' }}>{t(tier)}</Text></Panel>
@@ -84,4 +86,4 @@ export function QuizRunner({ questionIds, assessmentKey, onComplete }: Props) {
     <Animated.View style={{ opacity: fade }}><QuestionCard key={`${seed}-${current.question.id}`} presented={current} selected={pick ?? null} reveal={revealed} onSelect={select} /></Animated.View>
   </StudyScreen>;
 }
-const styles = StyleSheet.create({ center: { alignItems: 'center', gap: 12 }, row: { flexDirection: 'row', gap: 12 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, grow: { flex: 1, minWidth: 120 }, header: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }, pill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }, strong: { fontWeight: '600' }, cta: { paddingVertical: 6 } });
+const styles = StyleSheet.create({ center: { alignItems: 'center', gap: 12 }, row: { flexDirection: 'row', gap: 12 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, nextAction: { gap: 6 }, grow: { flex: 1, minWidth: 120 }, header: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }, pill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }, strong: { fontWeight: '600' }, cta: { paddingVertical: 6 } });
