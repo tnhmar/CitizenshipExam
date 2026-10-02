@@ -2,44 +2,38 @@ import * as Notifications from 'expo-notifications';
 import { useRootNavigationState, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
-import { reminderDestination } from '../logic/reminders';
-import { syncReminders } from '../notifications/reminders';
+import { needsTabAnchor } from '../navigation/tabRoots';
+import { resolveReminderDestination, syncReminders } from '../notifications/reminders';
 import { useProgress } from '../store/progress';
 import { useReminderSettings } from '../store/reminders';
 import { useSettings } from '../store/settings';
 
 export function useReminderSync(ready: boolean): void {
-  const router = useRouter();
-  const navigation = useRootNavigationState();
-  const prefs = useReminderSettings((s) => s.prefs);
-  const lang = useSettings((s) => s.lang);
-  const examDate = useSettings((s) => s.examDate);
-  const goal = useSettings((s) => s.dailyGoalMin);
-  const onboarded = useSettings((s) => s.onboarded);
-  const cards = useProgress((s) => s.cards);
+  const router = useRouter(); const navigation = useRootNavigationState();
+  const prefs = useReminderSettings((s) => s.prefs); const lang = useSettings((s) => s.lang); const examDate = useSettings((s) => s.examDate);
+  const goal = useSettings((s) => s.dailyGoalMin); const onboarded = useSettings((s) => s.onboarded);
+  const cards = useProgress((s) => s.cards); const active = useProgress((s) => s.active);
+  const lessonsRead = useProgress((s) => s.lessonsRead); const lessonsStarted = useProgress((s) => s.lessonsStarted); const quizPassed = useProgress((s) => s.quizPassed);
   const handled = useRef(new Set<string>());
   useEffect(() => {
     if (!ready || Platform.OS === 'web') return;
     const sync = () => { if (useReminderSettings.persist.hasHydrated()) void syncReminders().catch(() => undefined); };
-    const timer = setTimeout(sync, 300);
-    const unsub = useReminderSettings.persist.onFinishHydration(sync);
+    const timer = setTimeout(sync, 300); const unsub = useReminderSettings.persist.onFinishHydration(sync);
     const listener = AppState.addEventListener('change', (state) => { if (state === 'active') sync(); });
     return () => { clearTimeout(timer); unsub(); listener.remove(); };
-  }, [ready, prefs, lang, examDate, goal, onboarded, cards]);
+  }, [ready, prefs, lang, examDate, goal, onboarded, cards, active, lessonsRead, lessonsStarted, quizPassed]);
   useEffect(() => {
-    if (!ready || !onboarded || !navigation?.key || Platform.OS === 'web') return;
+    if (!ready || !onboarded || !navigation?.key || Platform.OS === 'web' || !useReminderSettings.persist.hasHydrated()) return;
     let live = true;
     const handle = (response: Notifications.NotificationResponse | null) => {
       if (!live || !response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
-      const id = response.notification.request.identifier;
-      const route = reminderDestination(response.notification.request.content.data);
+      const id = response.notification.request.identifier; const route = resolveReminderDestination(response.notification.request.content.data);
       if (!route || handled.current.has(id)) return;
-      handled.current.add(id);
-      router.push(route);
+      handled.current.add(id); router.navigate(route, { withAnchor: needsTabAnchor(route) });
       void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
     };
     void Notifications.getLastNotificationResponseAsync().then(handle).catch(() => undefined);
     const listener = Notifications.addNotificationResponseReceivedListener(handle);
     return () => { live = false; listener.remove(); };
-  }, [ready, onboarded, navigation?.key, router]);
+  }, [ready, onboarded, navigation?.key, prefs, router]);
 }
