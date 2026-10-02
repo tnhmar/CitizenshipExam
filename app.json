@@ -10,7 +10,8 @@
     "ios": { "bundleIdentifier": "com.tnhmar.citizenshipexam", "supportsTablet": true },
     "android": {
       "package": "com.tnhmar.citizenshipexam",
-      "adaptiveIcon": { "foregroundImage": "./assets/generated/adaptive-icon.png", "backgroundColor": "#C22020" }
+      "adaptiveIcon": { "foregroundImage": "./assets/generated/adaptive-icon.png", "backgroundColor": "#C22020" },
+      "permissions": ["android.permission.SCHEDULE_EXACT_ALARM", "android.permission.RECEIVE_BOOT_COMPLETED"]
     },
     "plugins": [
       "expo-router",

@@ -4,9 +4,12 @@ import type { SrsCard } from '../types';
 export const REMINDER_OWNER = 'citizenship-local-v1';
 export const REMINDER_PREFIX = 'citizenship-reminder-';
 export const REMINDER_DAYS = 30;
+export const TEST_SUFFIX = 'test';
+export const TEST_DATE_SUFFIX = 'test-date';
 export interface ReminderPrefs { enabled: boolean; study: boolean; review: boolean; exam: boolean; time: string; }
 export type ReminderKind = 'study' | 'review' | 'exam';
 export interface PlannedReminder { id: string; at: number; kinds: ReminderKind[]; daysBefore?: number; }
+export interface RegisteredReminder { id: string; at: number; title: string; route: string | null; kinds: ReminderKind[]; }
 
 export function parseReminderTime(time: string): { hour: number; minute: number } | null {
   const m = /^(\d{2}):(\d{2})$/.exec(time);
@@ -65,4 +68,26 @@ export function reminderDestination(data: unknown): '/' | '/learn' | '/review' |
   if (!value || value.owner !== REMINDER_OWNER) return null;
   const route = value.route;
   return route === '/' || route === '/learn' || route === '/review' || route === '/exams' ? route : null;
+}
+
+export function reminderIdTimestamp(id: string): number | null {
+  if (!id.startsWith(REMINDER_PREFIX)) return null;
+  const suffix = id.slice(REMINDER_PREFIX.length);
+  if (!/^[1-9]\d*$/.test(suffix)) return null;
+  const at = Number(suffix);
+  return Number.isSafeInteger(at) && at <= 8640000000000000 ? at : null;
+}
+
+export function upcomingReminders<T extends { at: number }>(items: T[], now: number, limit: number): T[] {
+  if (!Number.isFinite(limit) || limit <= 0) return [];
+  return items.filter((item) => Number.isFinite(item.at) && item.at > now).sort((a, b) => a.at - b.at).slice(0, Math.floor(limit));
+}
+
+export function registeredReminder(request: { identifier: string; content: { title?: string | null; data?: unknown } }): RegisteredReminder | null {
+  const route = reminderDestination(request.content.data);
+  const at = reminderIdTimestamp(request.identifier);
+  if (route === null || at === null) return null;
+  const data = request.content.data as { kinds?: unknown };
+  const kinds = Array.isArray(data.kinds) ? [...new Set(data.kinds.filter((kind): kind is ReminderKind => kind === 'study' || kind === 'review' || kind === 'exam'))] : [];
+  return { id: request.identifier, at, title: request.content.title ?? '', route, kinds };
 }

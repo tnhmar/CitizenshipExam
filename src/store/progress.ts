@@ -6,19 +6,19 @@ import { toggleBookmark as toggleSaved, type Bookmarks } from '../logic/bookmark
 import { initialLearning, migrateLearning, recordLearningQuiz, startLesson, studyLesson, type LearningProgress, type LearningQuizResult } from '../logic/completion';
 import { captureExamSelections, captureQuestionResponse, historyData, migrateCapturedProgress, type AssessmentContext } from '../logic/assessmentCapture';
 import { initialAssessmentHistory, type AssessmentHistory } from '../logic/learningStats';
-import { touchStreak, type Streak } from '../logic/progress';
+import type { Streak } from '../logic/progress';
+import { emptyStudyStreak, migrateStudyDayFields, objectiveStudyResponse, studyExamCompletion, touchStudyDay } from '../logic/studyDays';
 import { gradeFrom, newCard, schedule } from '../logic/srs';
 import type { ExamAttempt, Grade, Lang, Question, SrsCard } from '../types';
 
 export type QuizResult = LearningQuizResult;
 interface ProgressData extends LearningProgress, AssessmentHistory {
   attempts: ExamAttempt[]; active: ExamAttempt | null; cards: Record<string, SrsCard>; bookmarks: Bookmarks;
-  streak: Streak; studyMs: number; lastRoute: string | null;
+  streak: Streak; legacyActivityStreak: Streak | null; studyMs: number; lastRoute: string | null;
 }
 interface ProgressState extends ProgressData {
   startLesson: (lessonId: number) => void;
   markLessonStudied: (lessonId: number, lang: Lang) => void;
-  // Kept for compatibility; a read marker can only start a lesson now.
   markLessonRead: (lessonId: number) => void;
   recordQuiz: (key: string, correct: number, total: number, lang?: Lang) => void;
   setActive: (attempt: ExamAttempt | null) => void;
@@ -32,31 +32,49 @@ interface ProgressState extends ProgressData {
   setLastRoute: (route: string) => void;
   resetAll: () => void;
 }
-const initial = (): ProgressData => ({ ...initialLearning(), ...initialAssessmentHistory(), attempts: [], active: null, cards: {}, bookmarks: {}, streak: { count: 0, best: 0, lastDay: null }, studyMs: 0, lastRoute: null });
+const initial = (): ProgressData => ({ ...initialLearning(), ...initialAssessmentHistory(), attempts: [], active: null, cards: {}, bookmarks: {}, streak: emptyStudyStreak(), legacyActivityStreak: null, studyMs: 0, lastRoute: null });
 export const useProgress = create<ProgressState>()(persist<ProgressState, [], [], ProgressData>((set, get) => ({
   ...initial(),
   startLesson: (id) => set((s) => getBundle('en').lessons.some((l) => l.id === id) ? startLesson(s, id, Date.now()) : s),
   markLessonRead: (id) => get().startLesson(id),
   markLessonStudied: (id, lang) => set((s) => {
     const now = Date.now(); const next = studyLesson(s, getBundle(lang), id, now);
-    return next === s ? s : { ...next, streak: touchStreak(s.streak, now) };
+    return next === s ? s : { ...next, streak: touchStudyDay(s.streak, now) };
   }),
   recordQuiz: (key, correct, total, lang = 'en') => set((s) => {
     const now = Date.now(); const next = recordLearningQuiz(s, getBundle(lang), key, correct, total, now);
-    return next === s ? s : { ...next, streak: touchStreak(s.streak, now) };
+    return next === s ? s : { ...next, streak: touchStudyDay(s.streak, now) };
   }),
-  recordAssessment: (q, correct, context) => set((s) => captureQuestionResponse(s, getBundle('en'), q, correct, context)),
-  setActive: (active) => set((s) => ({ active, ...captureExamSelections(s.active, active, getBundle(active?.lang ?? 'en'), s, Date.now()) })),
-  finishExam: (attempt) => set((s) => ({ attempts: [...s.attempts.filter((a) => a.id !== attempt.id), attempt], active: null, streak: touchStreak(s.streak, Date.now()) })),
-  review: (q, grade, context) => set((s) => { const now = Date.now(); const card = s.cards[q.conceptId] ?? newCard(q.id, q.conceptId, now); const history = context ? captureQuestionResponse(s, getBundle('en'), q, context.correct ?? (grade !== 'unknown'), context) : historyData(s); return { ...history, cards: { ...s.cards, [q.conceptId]: schedule(card, grade, now) }, streak: touchStreak(s.streak, now) }; }),
-  feedMistake: (q, correct, context) => { if (context) get().recordAssessment(q, correct, context); if (correct && !get().cards[q.conceptId]) return; get().review(q, gradeFrom(correct, 'know')); },
+  recordAssessment: (q, correct, context) => set((s) => {
+    const now = Date.now(); const history = captureQuestionResponse(s, getBundle('en'), q, correct, context);
+    return { ...history, streak: history.assessmentEvents !== s.assessmentEvents && objectiveStudyResponse(context, now) ? touchStudyDay(s.streak, now) : s.streak };
+  }),
+  setActive: (active) => set((s) => {
+    const now = Date.now(); const history = captureExamSelections(s.active, active, getBundle(active?.lang ?? 'en'), s, now);
+    return { active, ...history, streak: history.assessmentEvents !== s.assessmentEvents ? touchStudyDay(s.streak, now) : s.streak };
+  }),
+  finishExam: (attempt) => set((s) => {
+    const now = Date.now();
+    return { attempts: [...s.attempts.filter((a) => a.id !== attempt.id), attempt], active: null, streak: studyExamCompletion(attempt, getBundle(attempt.lang), now) ? touchStudyDay(s.streak, now) : s.streak };
+  }),
+  review: (q, grade, context) => set((s) => {
+    const now = Date.now(); const card = s.cards[q.conceptId] ?? newCard(q.id, q.conceptId, now);
+    const history = context ? captureQuestionResponse(s, getBundle('en'), q, context.correct ?? (grade !== 'unknown'), context) : historyData(s);
+    return { ...history, cards: { ...s.cards, [q.conceptId]: schedule(card, grade, now) }, streak: history.assessmentEvents !== s.assessmentEvents && objectiveStudyResponse(context, now) ? touchStudyDay(s.streak, now) : s.streak };
+  }),
+  feedMistake: (q, correct, context) => { if (context) get().recordAssessment(q, correct, context); if (correct && !get().cards[q.conceptId]) return; get().review(q, gradeFrom(correct, 'know'), context); },
   toggleBookmark: (q) => set((s) => ({ bookmarks: toggleSaved(s.bookmarks, q, Date.now()) })),
   removeBookmark: (conceptId) => set((s) => { const bookmarks = { ...s.bookmarks }; delete bookmarks[conceptId]; return { bookmarks }; }),
   addStudyTime: (ms) => set((s) => ({ studyMs: s.studyMs + ms })),
   setLastRoute: (lastRoute) => set({ lastRoute }),
   resetAll: () => set(initial()),
 }), {
-  name: 'progress-v1', version: 3, storage: createJSONStorage(() => AsyncStorage),
-  partialize: (s) => ({ ...historyData(s), lessonsRead: s.lessonsRead, lessonsStarted: s.lessonsStarted, lessonsStudied: s.lessonsStudied, quizResults: s.quizResults, quizBest: s.quizBest, quizPassed: s.quizPassed, attempts: s.attempts, active: s.active, cards: s.cards, bookmarks: s.bookmarks, streak: s.streak, studyMs: s.studyMs, lastRoute: s.lastRoute }),
-  migrate: (persisted, version) => { const legacy = (persisted ?? {}) as Partial<ProgressData>; const completion = version < 2 ? migrateLearning(legacy, [getBundle('en'), getBundle('fr')]) : {}; return migrateCapturedProgress(initial(), { ...legacy, ...completion }); },
+  name: 'progress-v1', version: 4, storage: createJSONStorage(() => AsyncStorage),
+  partialize: (s) => ({ ...historyData(s), lessonsRead: s.lessonsRead, lessonsStarted: s.lessonsStarted, lessonsStudied: s.lessonsStudied, quizResults: s.quizResults, quizBest: s.quizBest, quizPassed: s.quizPassed, attempts: s.attempts, active: s.active, cards: s.cards, bookmarks: s.bookmarks, streak: s.streak, legacyActivityStreak: s.legacyActivityStreak, studyMs: s.studyMs, lastRoute: s.lastRoute }),
+  migrate: (persisted, version) => {
+    const legacy = (persisted ?? {}) as Partial<ProgressData>;
+    const completion = version < 2 ? migrateLearning(legacy, [getBundle('en'), getBundle('fr')]) : {};
+    const migrated = version < 3 ? migrateCapturedProgress(initial(), { ...legacy, ...completion }) : { ...initial(), ...legacy };
+    return { ...migrated, ...migrateStudyDayFields(legacy, version) };
+  },
 }));

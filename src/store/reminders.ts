@@ -1,11 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { ReminderPrefs } from '../logic/reminders';
+import type { RegisteredReminder, ReminderPrefs } from '../logic/reminders';
 
 export type ReminderStatus = 'off' | 'ready' | 'blocked' | 'error' | 'unsupported';
-interface Report { status: ReminderStatus; count: number; nextAt: number | null; until: number | null; error: string | null; }
-interface State { prefs: ReminderPrefs; report: Report; setPrefs: (patch: Partial<ReminderPrefs>) => void; setReport: (report: Report) => void; }
+export interface ReminderReport {
+  status: ReminderStatus; count: number; nextAt: number | null; until: number | null; error: string | null;
+  upcoming?: RegisteredReminder[]; created?: number; cancelled?: number; failed?: number; planned?: number; verifiedAt?: number;
+}
+interface State { prefs: ReminderPrefs; report: ReminderReport; setPrefs: (patch: Partial<ReminderPrefs>) => void; setReport: (report: ReminderReport) => void; }
 
 export const useReminderSettings = create<State>()(persist((set) => ({
   prefs: { enabled: false, study: true, review: true, exam: true, time: '20:00' },

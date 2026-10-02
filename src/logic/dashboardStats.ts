@@ -1,6 +1,7 @@
 import type { ContentBundle, ExamAttempt, SrsCard } from '../types';
 import { chapterStatus, lessonStatus, type LearningProgress } from './completion';
 import { assessmentCoverage, bestExamEvidence, delayedRecallEvidence, examImprovement, recentMockEvidence, recentPracticeEvidence, reviewWorkload, topicEvidence, type ExamEvidence, type TopicEvidence, type AssessmentHistory } from './learningStats';
+import { selectNextStep, type NextStepAlternative } from './nextSteps';
 
 export interface DashboardProgress extends LearningProgress, AssessmentHistory {
   attempts: ExamAttempt[];
@@ -13,6 +14,7 @@ export interface DashboardSnapshot {
   exams: { best: ExamEvidence | null; recentMocks: ExamEvidence[]; recentMockAverage: number | null; improvement: number | null };
   review: { due: number; overdue: number };
   nextAction: DashboardAction;
+  nextAlternative: NextStepAlternative | null;
 }
 export interface DashboardAction {
   kind: 'startLearning' | 'continueLesson' | 'reviewDue' | 'studyTopic' | 'finishChapter' | 'takeMock' | 'resumeExam';
@@ -25,25 +27,15 @@ export function snapshot(bundle: ContentBundle, progress: DashboardProgress, now
   const chapterStates = bundle.chapters.map((c) => chapterStatus(progress, c));
   const topics = topicEvidence(bundle, progress.assessmentEvents, now);
   const weak = topics.filter((t) => t.status === 'needsReview').sort((a, b) => (a.accuracy ?? 1) - (b.accuracy ?? 1) || a.chapterId - b.chapterId)[0];
-  const nextLesson = bundle.lessons.find((l) => lessonStatus(progress, l.id) !== 'completed');
-  const pendingChapter = bundle.chapters.find((c) => c.lessonIds.length > 0 && c.lessonIds.every((id) => lessonStatus(progress, id) === 'completed') && chapterStatus(progress, c) !== 'completed');
   const review = reviewWorkload(bundle, Object.values(progress.cards), now);
-  const active = progress.active;
-  let nextAction: DashboardAction;
-  if (active && active.finishedAt === null && bundle.exams.some((e) => e.id === active.examId)) nextAction = { kind: 'resumeExam', examId: active.examId };
-  else if (review.due > 0) nextAction = { kind: 'reviewDue' };
-  else if (weak) nextAction = { kind: 'studyTopic', chapterId: weak.chapterId };
-  else if (nextLesson) nextAction = { kind: lessonStatus(progress, nextLesson.id) === 'inProgress' ? 'continueLesson' : 'startLearning', lessonId: nextLesson.id };
-  else if (pendingChapter) nextAction = { kind: 'finishChapter', chapterId: pendingChapter.id };
-  else nextAction = { kind: 'takeMock' };
+  const next = selectNextStep(bundle, progress, now, review.due, weak?.chapterId);
   const lessonsCompleted = lessonStates.filter((s) => s === 'completed').length;
   const studied = bundle.lessons.filter((l) => l.questionIds.length === 0 && progress.lessonsStudied[l.id] !== undefined && lessonStatus(progress, l.id) === 'completed').length;
   const recentMocks = recentMockEvidence(bundle, progress.attempts, now);
   return {
-    completion: { lessonsCompleted, lessonsTotal: bundle.lessons.length, chaptersCompleted: chapterStates.filter((s) => s === 'completed').length, chaptersTotal: bundle.chapters.length, lessonsInProgress: lessonStates.filter((s) => s === 'inProgress').length, lessonsValidated: lessonsCompleted - studied, lessonsStudiedWithoutQuiz: studied },
+    completion: { lessonsCompleted, lessonsTotal: bundle.lessons.length, chaptersCompleted: chapterStates.filter((s) => s === 'completed').length, chaptersTotal: chapterStates.length, lessonsInProgress: lessonStates.filter((s) => s === 'inProgress').length, lessonsValidated: lessonsCompleted - studied, lessonsStudiedWithoutQuiz: studied },
     evidence: { coverage: assessmentCoverage(bundle, progress.assessmentEvents, now), practice: recentPracticeEvidence(bundle, progress.assessmentEvents, now), delayedRecall: delayedRecallEvidence(bundle, progress.assessmentEvents, now), topics, historyStartedAt: progress.assessmentHistoryStartedAt, truncatedBefore: progress.assessmentHistoryTruncatedBefore },
     exams: { best: bestExamEvidence(bundle, progress.attempts, now), recentMocks, recentMockAverage: recentMocks.length ? recentMocks.reduce((sum, e) => sum + e.ratio, 0) / recentMocks.length : null, improvement: examImprovement(bundle, progress.attempts, now) },
-    review,
-    nextAction,
+    review, nextAction: next.primary, nextAlternative: next.alternative,
   };
 }

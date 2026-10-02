@@ -23,8 +23,8 @@ const extraEn = {
   examRuleHint: 'Exam pass rules are separate from the 90% course-validation rule.',
   bestExam: 'Best saved exam (all modes)', finishedExams: 'Finished exams saved', passRequired: 'Correct answers required',
   historicMisses: 'Historical misses', historicHint: 'Past lapses, not a current mastery measurement.', noHistoricMisses: 'No historical misses recorded for this chapter.',
-  activity: 'Activity, not mastery', readerTime: 'Estimated reader time', bestStreak: 'Best activity streak',
-  activityHint: 'Reader-focused duration can include idle time. It is not total active study time, exam time or listening time and is not used as a readiness score.',
+  activity: 'Activity, not mastery', readerTime: 'Estimated reader time', bestStreak: 'Best study-day streak',
+  activityHint: 'Reader-focused duration can include idle time. It is not total active study time, exam time or listening time and is not used as a readiness score. The study-day streak counts qualifying learning actions on consecutive local dates, not reading time or flashcard self-ratings. Previous activity streaks are saved separately, not reclassified.',
 };
 const extraFr: typeof extraEn = {
   lessonStatuses: { notStarted: 'Pas commencé', inProgress: 'En cours', completed: 'Terminé' },
@@ -49,8 +49,8 @@ const extraFr: typeof extraEn = {
   examRuleHint: 'Les seuils des examens sont distincts du seuil de 90 % pour valider le cours.',
   bestExam: 'Meilleur examen enregistré (tous modes)', finishedExams: 'Examens terminés enregistrés', passRequired: 'Bonnes réponses nécessaires',
   historicMisses: 'Erreurs historiques', historicHint: 'Échecs passés, pas une mesure de la maîtrise actuelle.', noHistoricMisses: 'Aucune erreur historique enregistrée pour ce chapitre.',
-  activity: 'Activité, pas maîtrise', readerTime: 'Durée de lecture estimée', bestStreak: 'Meilleure série d’activité',
-  activityHint: 'La durée affichée dans le lecteur peut inclure de l’inactivité. Ce n’est pas le temps total d’étude active, d’examen ou d’écoute et elle ne sert pas de score de préparation.',
+  activity: 'Activité, pas maîtrise', readerTime: 'Durée de lecture estimée', bestStreak: 'Meilleure série de jours d’étude',
+  activityHint: 'La durée affichée dans le lecteur peut inclure de l’inactivité. Ce n’est pas le temps total d’étude active, d’examen ou d’écoute et elle ne sert pas de score de préparation. La série d’étude compte les actions admissibles à des dates locales consécutives, pas la lecture ni les autoévaluations. Les anciennes séries d’activité restent conservées séparément, sans reclassement.',
 };
 export const progressLearningEn = { ...homeLearningEn, ...extraEn };
 export const progressLearningFr: typeof progressLearningEn = { ...homeLearningFr, ...extraFr };
