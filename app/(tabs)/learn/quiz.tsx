@@ -22,7 +22,7 @@ function Assessment({ bundle, assessmentKey, kind }: { bundle: ContentBundle; as
   const ids = assessmentIds(bundle, assessmentKey);
   return <View style={styles.root}><Stack.Screen options={{ title: kind === 'chapter' ? t('learn.chapterQuiz') : t('learn.lessonQuiz') }} />
     <View style={[styles.notice, { backgroundColor: theme.colors.surface }]}><Text>90% · {text.practiceOnly}</Text>{earned ? <Text>{text.earned}</Text> : null}{result ? <Text accessibilityLiveRegion='polite'>{text.latest}: {result.correct}/{result.total} · {passesLearningQuiz(result.correct, result.total) ? text.quizPassed : text.quizFailed}</Text> : null}{!ids.length ? <Text>{text.unavailable}</Text> : null}</View>
-    <QuizRunner questionIds={ids} onComplete={onComplete} />
+    <QuizRunner questionIds={ids} assessmentKey={assessmentKey} onComplete={onComplete} />
   </View>;
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, notice: { paddingHorizontal: 16, paddingVertical: 8, gap: 4 } });
