@@ -1,0 +1,78 @@
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Button, Text, useTheme } from 'react-native-paper';
+import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
+import type { ExamEvidence, TopicEvidence } from '../logic/learningStats';
+import { progressScoreColour } from '../logic/progressPresentation';
+
+interface Segment { label: string; value: number; color: string; }
+const ratio = (value: number): number => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+const percentWidth = (value: number): `${number}%` => `${ratio(value) * 100}%`;
+export function DistributionRing({ segments, center, label }: { segments: Segment[]; center: string; label: string }) {
+  const theme = useTheme(); const rows = segments.map((s) => ({ ...s, value: Number.isFinite(s.value) ? Math.max(0, s.value) : 0 }));
+  const total = rows.reduce((sum, s) => sum + s.value, 0); const circumference = 2 * Math.PI * 56;
+  let offset = 0;
+  return <View style={styles.ringLayout}>
+    <View accessible accessibilityRole='image' accessibilityLabel={`${label}: ${center}. ${rows.map((s) => `${s.label}: ${s.value}`).join(', ')}`}>
+      <Svg width={160} height={160} viewBox='0 0 160 160' accessible={false}>
+        <Circle cx={80} cy={80} r={56} stroke={theme.colors.surfaceVariant} strokeWidth={16} fill='none' />
+        {total > 0 ? rows.map((s) => { const length = s.value / total * circumference; const start = offset; offset += length; return length > 0 ? <Circle key={s.label} cx={80} cy={80} r={56} stroke={s.color} strokeWidth={16} fill='none' strokeDasharray={`${length} ${circumference}`} strokeDashoffset={-start} rotation={-90} origin='80,80' /> : null; }) : null}
+        <SvgText x={80} y={87} textAnchor='middle' fontWeight='700' fontSize={center.length > 8 ? 12 : 24} fill={theme.colors.onSurface}>{center}</SvgText>
+      </Svg>
+    </View>
+    <View style={styles.legend}>{rows.map((s) => <View key={s.label} style={styles.legendRow}><View style={[styles.dot, { backgroundColor: s.color }]} /><Text variant='bodySmall' style={styles.grow}>{s.label}</Text><Text variant='titleMedium'>{s.value}</Text></View>)}</View>
+  </View>;
+}
+interface TrendProps {
+  rows: ExamEvidence[];
+  onSelect: (id: string) => void;
+  formatDate: (at: number | null) => string;
+  emptyLabel: string;
+  passedLabel: string;
+  failedLabel: string;
+  targetLabel: string;
+}
+export function ExamTrendChart({ rows, onSelect, formatDate, emptyLabel, passedLabel, failedLabel, targetLabel }: TrendProps) {
+  const theme = useTheme(); if (!rows.length) return <Text>{emptyLabel}</Text>;
+  const attempts = [...rows].reverse();
+  const points = attempts.map((e, i) => ({ e, x: attempts.length === 1 ? 174 : 34 + i * 278 / (attempts.length - 1), y: 142 - ratio(e.ratio) * 122, targetY: 142 - ratio(e.required / e.total) * 122 }));
+  const path = points.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ');
+  const target = points.length === 1 ? `M 34 ${points[0].targetY} L 312 ${points[0].targetY}` : points.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.targetY}`).join(' ');
+  return <View style={styles.trend}>
+    <View accessible accessibilityRole='image' accessibilityLabel={attempts.map((e) => `${e.correct}/${e.total}, ${e.passed ? passedLabel : failedLabel}`).join('; ')}>
+      <Svg width='100%' height={170} viewBox='0 0 330 170' accessible={false}>
+        {[0, 0.5, 1].map((v) => <Line key={v} x1={34} x2={312} y1={142 - v * 122} y2={142 - v * 122} stroke={theme.colors.outlineVariant} strokeWidth={1} />)}
+        {[0, 50, 100].map((v) => <SvgText key={v} x={27} y={146 - v / 100 * 122} textAnchor='end' fontSize={10} fill={theme.colors.onSurfaceVariant}>{v}%</SvgText>)}
+        <Path d={target} fill='none' stroke={theme.colors.onSurfaceVariant} strokeWidth={1.5} strokeDasharray='5 4' />
+        <Path d={path} fill='none' stroke={theme.colors.secondary} strokeWidth={3} />
+        {points.map((p) => <Circle key={p.e.attempt.id} cx={p.x} cy={p.y} r={5} fill={progressScoreColour(p.e.passed, theme.dark)} stroke={theme.colors.surface} strokeWidth={2} />)}
+      </Svg>
+    </View>
+    <View style={styles.targetLegend}><View style={[styles.targetDash, { borderColor: theme.colors.onSurfaceVariant }]} /><Text variant='bodySmall'>{targetLabel}</Text></View>
+    <View style={styles.attempts}>{attempts.map((e) => <Pressable key={e.attempt.id} accessibilityRole='button' accessibilityLabel={`${formatDate(e.attempt.finishedAt)}: ${e.correct}/${e.total}, ${e.passed ? passedLabel : failedLabel}`} onPress={() => onSelect(e.attempt.id)} style={[styles.attempt, { borderColor: theme.colors.outlineVariant }]}><Text variant='titleSmall'>{e.correct}/{e.total}</Text><Text variant='labelSmall' style={{ color: progressScoreColour(e.passed, theme.dark) }}>{e.passed ? passedLabel : failedLabel}</Text><Text variant='labelSmall'>{formatDate(e.attempt.finishedAt)}</Text></Pressable>)}</View>
+  </View>;
+}
+interface TopicsProps {
+  topics: TopicEvidence[];
+  titleForTopic: (id: number) => string;
+  statusLabel: (status: TopicEvidence['status']) => string;
+  onSelect: (id: number) => void;
+  emptyLabel: string;
+  showAllLabel: string;
+  showLessLabel: string;
+}
+export function TopicAccuracyChart({ topics, titleForTopic, statusLabel, onSelect, emptyLabel, showAllLabel, showLessLabel }: TopicsProps) {
+  const theme = useTheme(); const [expanded, setExpanded] = useState(false);
+  const rank = { needsReview: 0, notAssessed: 1, limitedEvidence: 2, learning: 3, strongEvidence: 4 };
+  const ordered = [...topics].sort((a, b) => rank[a.status] - rank[b.status] || a.chapterId - b.chapterId);
+  if (!ordered.length) return <Text>{emptyLabel}</Text>;
+  return <View style={styles.topics}>
+    {(expanded ? ordered : ordered.slice(0, 6)).map((topic) => { const color = topic.status === 'needsReview' ? progressScoreColour(false, theme.dark) : topic.status === 'strongEvidence' ? progressScoreColour(true, theme.dark) : theme.colors.secondary; return <Pressable key={topic.chapterId} accessibilityRole='button' accessibilityLabel={`${titleForTopic(topic.chapterId)}: ${statusLabel(topic.status)}, ${topic.correct}/${topic.total}`} onPress={() => onSelect(topic.chapterId)} style={styles.topic}>
+      <View style={styles.topicHeading}><Text variant='bodyMedium' numberOfLines={2} style={styles.grow}>{titleForTopic(topic.chapterId)}</Text><Text variant='titleSmall'>{topic.accuracy === null ? '—' : `${Math.round(topic.accuracy * 100)}%`}</Text></View>
+      <View style={[styles.track, { backgroundColor: theme.colors.surfaceVariant }]}>{topic.accuracy !== null ? <View style={[styles.fill, { width: percentWidth(topic.accuracy), backgroundColor: color }]} /> : null}</View>
+      <View style={styles.topicHeading}><Text variant='labelSmall' style={[styles.grow, { color: theme.colors.onSurfaceVariant }]}>{statusLabel(topic.status)}</Text><Text variant='labelSmall'>{topic.distinctConcepts}/{topic.assessableConcepts}</Text></View>
+    </Pressable>; })}
+    {ordered.length > 6 ? <Button onPress={() => setExpanded(!expanded)}>{expanded ? showLessLabel : showAllLabel}</Button> : null}
+  </View>;
+}
+const styles = StyleSheet.create({ ringLayout: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12 }, legend: { flex: 1, minWidth: 130, gap: 12 }, legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, dot: { width: 10, height: 10, borderRadius: 5 }, grow: { flex: 1 }, trend: { gap: 8 }, targetLegend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, targetDash: { width: 20, borderTopWidth: 1, borderStyle: 'dashed' }, attempts: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, attempt: { flexGrow: 1, minWidth: 65, alignItems: 'center', gap: 3, padding: 8, borderWidth: 1, borderRadius: 12 }, topics: { gap: 16 }, topic: { gap: 6 }, topicHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 }, track: { height: 12, borderRadius: 6, overflow: 'hidden' }, fill: { height: 12, borderRadius: 6 } });

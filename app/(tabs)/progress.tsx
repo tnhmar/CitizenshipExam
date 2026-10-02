@@ -7,10 +7,11 @@ import { Accordion } from '../../src/components/Accordion';
 import { Bar } from '../../src/components/Bar';
 import { Panel } from '../../src/components/Panel';
 import { Screen } from '../../src/components/Screen';
-import { ScoreRing } from '../../src/components/ScoreRing';
+import { DistributionRing, ExamTrendChart, TopicAccuracyChart } from '../../src/components/ProgressCharts';
 import { StatCard } from '../../src/components/StatCard';
 import { useBundle } from '../../src/content/useBundle';
 import { useCompletionText } from '../../src/i18n/completion';
+import { useProgressChartText } from '../../src/i18n/progressCharts';
 import { useProgressLearningText } from '../../src/i18n/progressLearning';
 import { snapshot } from '../../src/logic/dashboardStats';
 import { homePercent, homeStep } from '../../src/logic/homePresentation';
@@ -22,7 +23,7 @@ import { useProgress } from '../../src/store/progress';
 
 const stamp = (): number => Date.now();
 export default function ProgressScreen() {
-  const { t, i18n } = useTranslation(); const text = useProgressLearningText(); const completionText = useCompletionText();
+  const { t, i18n } = useTranslation(); const text = useProgressLearningText(); const charts = useProgressChartText(); const completionText = useCompletionText();
   const router = useRouter(); const theme = useTheme(); const bundle = useBundle(); const progress = useProgress();
   const [now, setNow] = useState(stamp);
   useFocusEffect(useCallback(() => {
@@ -35,9 +36,8 @@ export default function ProgressScreen() {
   const history = useMemo(() => progressHistory(bundle, progress.attempts, now), [bundle, progress.attempts, now]);
   const finished = useMemo(() => finishedExamEvidence(bundle, progress.attempts, now), [bundle, progress.attempts, now]);
   const chapters = useMemo(() => bundle.chapters.map((c) => progressChapter(bundle, progress, c.id)).filter((row): row is ProgressChapterRow => row !== null), [bundle, progress]);
-  const weak = [...data.evidence.topics].filter((topic) => topic.status === 'needsReview').sort((a, b) => (a.accuracy ?? 1) - (b.accuracy ?? 1)).slice(0, 3);
   const step = homeStep(data.nextAction, bundle); const completion = data.completion;
-  const completionPercent = completion.lessonsTotal ? completion.lessonsCompleted * 100 / completion.lessonsTotal : 0;
+  const notStarted = Math.max(0, completion.lessonsTotal - completion.lessonsCompleted - completion.lessonsInProgress);
   const cardList = Object.values(progress.cards);
   const open = (route: string) => router.push(route, { withAnchor: needsTabAnchor(route) });
   const scoreColour = (passed: boolean) => progressScoreColour(passed, theme.dark);
@@ -58,55 +58,61 @@ export default function ProgressScreen() {
   </View>;
   return <Screen>
     {bundle.sample ? <Panel tone='warning'><Text>{t('common.sampleBanner')}</Text></Panel> : null}
-    <Panel tone='primary'>
-      <View style={styles.hero}><ScoreRing value={completionPercent} label={`${completion.lessonsCompleted}/${completion.lessonsTotal}`} size={120} color={theme.colors.onPrimary} trackColor={theme.colors.primaryContainer} textColor={theme.colors.onPrimary} /><View style={styles.grow}><Text variant='titleLarge' style={{ color: theme.colors.onPrimary }}>{text.completion}</Text><Text style={{ color: theme.colors.onPrimary }}>{text.lessonsCompleted}: {completion.lessonsCompleted}/{completion.lessonsTotal}</Text><Text style={{ color: theme.colors.onPrimary }}>{text.chaptersCompleted}: {completion.chaptersCompleted}/{completion.chaptersTotal}</Text><Text style={{ color: theme.colors.onPrimary }}>{text.inProgress}: {completion.lessonsInProgress}</Text></View></View>
-      <Text variant='bodySmall' style={{ color: theme.colors.onPrimary }}>{text.completionHint}</Text>
-      <Text variant='labelLarge' style={{ color: theme.colors.onPrimary }}>{text.next}</Text>
-      <Button mode='contained' buttonColor={theme.colors.surface} textColor={theme.colors.onSurface} onPress={() => open(step.route)}>{text.actions[data.nextAction.kind]}</Button>
-      {step.subject ? <Text variant='bodySmall' style={{ color: theme.colors.onPrimary }}>{step.subject}</Text> : null}
+    <Panel>
+      <Text variant='titleLarge'>{text.completion}</Text>
+      <DistributionRing label={text.completion} center={`${completion.lessonsCompleted}/${completion.lessonsTotal}`} segments={[
+        { label: text.lessonStatuses.completed, value: completion.lessonsCompleted, color: scoreColour(true) },
+        { label: text.lessonStatuses.inProgress, value: completion.lessonsInProgress, color: theme.colors.secondary },
+        { label: text.lessonStatuses.notStarted, value: notStarted, color: theme.colors.outlineVariant },
+      ]} />
+      <View style={styles.summary}><Text variant='titleMedium'>{completion.chaptersCompleted}/{completion.chaptersTotal} {charts.chapters}</Text><Text variant='labelMedium'>{text.validated}: {completion.lessonsValidated}</Text>{completion.lessonsStudiedWithoutQuiz > 0 ? <Text variant='labelMedium'>{text.studied}: {completion.lessonsStudiedWithoutQuiz}</Text> : null}</View>
+      <Button mode='contained' buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => open(step.route)}>{text.actions[data.nextAction.kind]}</Button>
+      {step.subject ? <Text variant='bodySmall' style={styles.centerText}>{step.subject}</Text> : null}
     </Panel>
     <Panel>
       <Text variant='titleMedium'>{text.coverage}</Text>
-      {metric(text.validated, String(completion.lessonsValidated))}
-      {completion.lessonsStudiedWithoutQuiz > 0 ? metric(text.studied, String(completion.lessonsStudiedWithoutQuiz)) : null}
-      {metric(text.coverage, data.evidence.coverage.assessableConcepts ? `${data.evidence.coverage.distinctConcepts}/${data.evidence.coverage.assessableConcepts} · ${homePercent(data.evidence.coverage.coverage)}` : text.noEvidence)}
-      {data.evidence.coverage.coverage !== null ? <Bar value={data.evidence.coverage.coverage} color={theme.colors.secondary} /> : null}
+      <DistributionRing label={text.coverage} center={homePercent(data.evidence.coverage.coverage)} segments={[
+        { label: charts.assessed, value: data.evidence.coverage.distinctConcepts, color: theme.colors.secondary },
+        { label: charts.unassessed, value: Math.max(0, data.evidence.coverage.assessableConcepts - data.evidence.coverage.distinctConcepts), color: theme.colors.outlineVariant },
+      ]} />
       {metric(text.practice, progressEvidence(data.evidence.practice) ?? text.noEvidence)}
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.coverageHint}</Text>
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.evidenceHint}</Text>
-      <Text variant='bodySmall'>{data.evidence.historyStartedAt === null ? text.historyEmpty : `${text.since}: ${dateLabel(data.evidence.historyStartedAt)}`}</Text>
-      {data.evidence.truncatedBefore !== null ? <Text variant='bodySmall'>{text.pruned}</Text> : null}
+      <Accordion title={charts.details}>
+        <Text variant='bodySmall'>{text.coverageHint}</Text><Text variant='bodySmall'>{text.evidenceHint}</Text>
+        <Text variant='bodySmall'>{data.evidence.historyStartedAt === null ? charts.recordingEmpty : `${text.since}: ${dateLabel(data.evidence.historyStartedAt)}`}</Text>
+        {data.evidence.truncatedBefore !== null ? <Text variant='bodySmall'>{text.pruned}</Text> : null}
+      </Accordion>
     </Panel>
     <Panel>
       <Text variant='titleMedium'>{text.recall}</Text>
-      <Text variant='headlineSmall'>{progressEvidence(data.evidence.delayedRecall) ?? text.noEvidence}</Text>
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.recallHint}</Text>
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.recallEvidenceHint}</Text>
+      <DistributionRing label={text.recall} center={homePercent(data.evidence.delayedRecall.accuracy)} segments={[
+        { label: charts.correctRecall, value: data.evidence.delayedRecall.correct, color: scoreColour(true) },
+        { label: charts.missedRecall, value: Math.max(0, data.evidence.delayedRecall.total - data.evidence.delayedRecall.correct), color: scoreColour(false) },
+      ]} />
+      {data.evidence.delayedRecall.total === 0 ? <Text variant='bodySmall'>{text.noEvidence}</Text> : null}
+      <Accordion title={charts.details}><Text variant='bodySmall'>{text.recallHint}</Text><Text variant='bodySmall'>{text.recallEvidenceHint}</Text></Accordion>
       <Button mode='outlined' onPress={() => open('/review')}>{text.reviewAction}</Button>
     </Panel>
     <Panel>
       <Text variant='titleMedium'>{text.mocks}</Text>
-      {data.exams.recentMocks.length > 0 ? <>
-        {metric(text.average, homePercent(data.exams.recentMockAverage))}
-        {metric(text.attempts, String(data.exams.recentMocks.length))}
-        <Accordion title={text.recentResults}>{data.exams.recentMocks.map(examRow)}</Accordion>
-      </> : <Text>{text.noMocks}</Text>}
+      <View style={styles.summary}><Text variant='headlineMedium'>{homePercent(data.exams.recentMockAverage)}</Text><Text variant='labelMedium'>{text.average} · {data.exams.recentMocks.length} {text.attempts}</Text></View>
+      <ExamTrendChart rows={data.exams.recentMocks} onSelect={(id) => open(`/exams/result/${encodeURIComponent(id)}`)} formatDate={dateLabel} emptyLabel={text.noMocks} passedLabel={text.passed} failedLabel={text.failed} targetLabel={charts.examTarget} />
+      <Text variant='bodySmall' style={styles.centerText}>{charts.attemptOrder}</Text>
       {metric(text.improvement, data.exams.improvement === null ? '—' : `${data.exams.improvement > 0 ? '+' : ''}${data.exams.improvement.toFixed(1)} ${text.points}`)}
-      <Text variant='bodySmall'>{data.exams.improvement === null ? text.noTrend : text.trendHint}</Text>
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.mockHint}</Text>
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.examRuleHint}</Text>
+      <Accordion title={charts.details}><Text variant='bodySmall'>{data.exams.improvement === null ? text.noTrend : text.trendHint}</Text><Text variant='bodySmall'>{text.mockHint}</Text><Text variant='bodySmall'>{text.examRuleHint}</Text>{data.exams.recentMocks.map(examRow)}</Accordion>
       <Button mode='outlined' onPress={() => open('/exams')}>{text.examsAction}</Button>
     </Panel>
     <Panel>
       <Text variant='titleMedium'>{text.reviewWorkload}</Text>
-      <View style={styles.row}><StatCard icon='🔄' value={String(data.review.due)} label={text.due} /><StatCard icon='⏳' value={String(data.review.overdue)} label={text.overdue} tone={data.review.overdue ? 'warning' : 'default'} /></View>
+      <DistributionRing label={text.reviewWorkload} center={String(data.review.due)} segments={[
+        { label: text.overdue, value: data.review.overdue, color: scoreColour(false) },
+        { label: charts.dueToday, value: Math.max(0, data.review.due - data.review.overdue), color: theme.colors.secondary },
+      ]} />
       {data.review.due === 0 ? <Text variant='bodySmall'>{text.noDue}</Text> : null}
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.overdueHint}</Text>
+      <Accordion title={charts.details}><Text variant='bodySmall'>{text.overdueHint}</Text></Accordion>
       <Button mode='outlined' onPress={() => open('/review')}>{text.reviewAction}</Button>
     </Panel>
     <Panel>
       <Text variant='titleMedium'>{text.history}</Text>
-      {metric(text.finishedExams, String(finished.length))}
       {metric(text.bestExam, data.exams.best ? `${data.exams.best.correct}/${data.exams.best.total} · ${homePercent(data.exams.best.ratio)}` : '—')}
       {history.length > 0 ? <Accordion title={text.history}>
         <View style={styles.chart}>{[...history].reverse().map((exam) => <Pressable key={exam.attempt.id} accessibilityRole='button' accessibilityLabel={`${exam.correct}/${exam.total} · ${exam.passed ? text.passed : text.failed}`} onPress={() => open(`/exams/result/${encodeURIComponent(exam.attempt.id)}`)} style={styles.barColumn}>
@@ -119,16 +125,12 @@ export default function ProgressScreen() {
       <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.historyHint}</Text>
     </Panel>
     <Panel>
-      <Text variant='titleMedium'>{text.focus}</Text>
-      {weak.length > 0 ? weak.map((topic) => <View key={topic.chapterId} style={styles.topicBlock}>
-        <Text variant='titleSmall'>{bundle.chapters.find((c) => c.id === topic.chapterId)?.title ?? String(topic.chapterId)}</Text>
-        {topicBlock(topic)}
-        <Button mode='outlined' onPress={() => open(`/learn/${topic.chapterId}`)}>{text.openChapter}</Button>
-      </View>) : <Text variant='bodySmall'>{text.focusEmpty}</Text>}
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.topicHint}</Text>
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.topicRule}</Text>
+      <Text variant='titleMedium'>{charts.topics}</Text>
+      <TopicAccuracyChart topics={data.evidence.topics} titleForTopic={(id) => bundle.chapters.find((c) => c.id === id)?.title ?? String(id)} statusLabel={(status) => text.topicLabels[status]} onSelect={(id) => open(`/learn/${id}`)} emptyLabel={text.noEvidence} showAllLabel={charts.showAll} showLessLabel={charts.showLess} />
+      <Text variant='bodySmall'>{charts.topicsHint}</Text>
+      <Accordion title={charts.details}><Text variant='bodySmall'>{text.topicHint}</Text><Text variant='bodySmall'>{text.topicRule}</Text></Accordion>
     </Panel>
-    <Text variant='titleMedium'>{text.chapters}</Text>
+    <Accordion title={charts.chapterDetails}>
     {chapters.map((chapter) => {
       const topic = data.evidence.topics.find((entry) => entry.chapterId === chapter.id);
       const missed = mostMissed(bundle, cardList, chapter.id, 3);
@@ -151,11 +153,11 @@ export default function ProgressScreen() {
         <Button mode='outlined' onPress={() => open(`/learn/${chapter.id}`)}>{text.openChapter}</Button>
       </Accordion>;
     })}
-    <Panel>
-      <Text variant='titleMedium'>{text.activity}</Text>
+    </Accordion>
+    <Accordion title={charts.activity}>
       <View style={styles.row}><StatCard icon='⏱' value={formatDuration(progress.studyMs)} label={text.readerTime} /><StatCard icon='🔥' value={String(progress.streak.best)} label={text.bestStreak} /></View>
       <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.activityHint}</Text>
-    </Panel>
+    </Accordion>
   </Screen>;
 }
-const styles = StyleSheet.create({ hero: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 }, grow: { flex: 1, gap: 4 }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, metric: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 4 }, metricValue: { flexShrink: 1, textAlign: 'right' }, examRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 }, score: { alignItems: 'flex-end', gap: 4 }, chart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 120, gap: 6 }, barColumn: { flex: 1, height: 120, alignItems: 'center', justifyContent: 'flex-end', gap: 4 }, bar: { width: '70%', borderRadius: 8 }, topicBlock: { gap: 6, paddingVertical: 8 }, lessonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1 } });
+const styles = StyleSheet.create({ grow: { flex: 1, gap: 4 }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, summary: { alignItems: 'center', gap: 4, paddingVertical: 8 }, centerText: { textAlign: 'center' }, metric: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 4 }, metricValue: { flexShrink: 1, textAlign: 'right' }, examRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 }, score: { alignItems: 'flex-end', gap: 4 }, topicBlock: { gap: 6, paddingVertical: 8 }, lessonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1 } });
