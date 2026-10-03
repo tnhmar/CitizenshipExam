@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Dialog, Portal, Text } from 'react-native-paper';
 import { usePreparationText } from '../i18n/preparation';
 import type { DashboardSnapshot } from '../logic/dashboardStats';
-import { MIN_PREPARATION_MOCKS, MIN_PREPARATION_PRACTICE_CONCEPTS, preparationEstimate } from '../logic/preparation';
+import { MIN_PREPARATION_MOCKS, MIN_PREPARATION_PRACTICE_CONCEPTS, PREPARATION_WEIGHTS, preparationEstimate } from '../logic/preparation';
 
 export function PreparationHero({ data, now, onProgress }: { data: DashboardSnapshot; now: number; onProgress: () => void }) {
   const text = usePreparationText(); const { i18n } = useTranslation(); const [visible, setVisible] = useState(false);
@@ -27,11 +27,11 @@ export function PreparationHero({ data, now, onProgress }: { data: DashboardSnap
       <Dialog.ScrollArea><ScrollView style={{ maxHeight: 400 }} contentContainerStyle={styles.explanation}>
         <Text>{text.method}</Text><Text>{text.weights}</Text><Text>{text.courseRule}</Text>
         <View style={styles.metrics}>
-          <Text variant='titleSmall'>{text.course} · 50%: {format(model.coursePercent)}</Text>
+          <Text variant='titleSmall'>{text.course} · {Math.round(PREPARATION_WEIGHTS.course * 100)}%: {format(model.coursePercent)}</Text>
           <Text>{text.lessons}: {data.completion.lessonsCompleted}/{data.completion.lessonsTotal} · {format(model.lessonPercent)}</Text>
           <Text>{text.chapters}: {data.completion.chaptersCompleted}/{data.completion.chaptersTotal} · {format(model.chapterPercent)}</Text>
-          <Text variant='titleSmall'>{text.practice} · 30%: {format(model.practicePercent)}</Text><Text>{model.practiceConcepts} {text.concepts}</Text>
-          <Text variant='titleSmall'>{text.mocks} · 20%: {format(model.mockPercent)}</Text><Text>{model.mockCount} {text.attempts}</Text>
+          <Text variant='titleSmall'>{text.practice} · {Math.round(PREPARATION_WEIGHTS.practice * 100)}%: {format(model.practicePercent)}</Text><Text>{model.practiceConcepts} {text.concepts}</Text>
+          <Text variant='titleSmall'>{text.mocks} · {Math.round(PREPARATION_WEIGHTS.mocks * 100)}%: {format(model.mockPercent)}</Text><Text>{model.mockCount} {text.attempts}</Text>
           {model.latestMockAt !== null ? <Text>{text.latest}: {new Date(model.latestMockAt).toLocaleDateString(i18n.language)}</Text> : null}
         </View>
         <Text>{gate}</Text><Text>{text.missing}</Text><Text>{text.window}</Text><Text>{text.excluded}</Text>

@@ -1,7 +1,7 @@
 import type { DashboardSnapshot } from './dashboardStats';
 import { validScore } from './completion';
 
-export const PREPARATION_WEIGHTS = { course: 0.5, practice: 0.3, mocks: 0.2 } as const;
+export const PREPARATION_WEIGHTS = { course: 0.25, practice: 0.4, mocks: 0.35 } as const;
 export const MIN_PREPARATION_PRACTICE_CONCEPTS = 5;
 export const MIN_PREPARATION_MOCKS = 2;
 export const PREPARATION_WINDOW_MS = 30 * 86400000;
