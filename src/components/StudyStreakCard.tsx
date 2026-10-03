@@ -12,7 +12,7 @@ export function StudyStreakCard({ streak, now, legacySaved }: { streak: Streak; 
   const message = text.states[status.state].replace('{{days}}', String(status.days));
   return <>
     <View style={{ gap: 6 }}>
-      <StatCard icon='🔥' value={String(status.days)} label={text.title} tone={status.state === 'doneToday' ? 'warning' : 'default'} onPress={() => setVisible(true)} />
+      <StatCard fill={false} icon='🔥' value={String(status.days)} label={text.title} tone={status.state === 'doneToday' ? 'warning' : 'default'} onPress={() => setVisible(true)} />
       <Text variant='bodySmall' accessibilityLiveRegion='polite'>{message}</Text>
       <Button compact mode='text' onPress={() => setVisible(true)}>{text.explain}</Button>
     </View>
