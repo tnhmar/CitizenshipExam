@@ -1,4 +1,3 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { useCallback, useMemo, useState } from 'react';
@@ -14,6 +13,7 @@ import { Panel } from '../../src/components/Panel';
 import { useBundle } from '../../src/content/useBundle';
 import { snapshot } from '../../src/logic/dashboardStats';
 import { homeBottomPadding } from '../../src/logic/homeLayout';
+import { tabBarGeometry } from '../../src/navigation/tabGeometry';
 import { needsTabAnchor } from '../../src/navigation/tabRoots';
 import { useProgress } from '../../src/store/progress';
 import { useSettings } from '../../src/store/settings';
@@ -21,7 +21,7 @@ import { useSettings } from '../../src/store/settings';
 const stamp = (): number => Date.now();
 export default function Home() {
   const { t } = useTranslation(); const router = useRouter(); const theme = useTheme();
-  const insets = useSafeAreaInsets(); const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets(); const geometry = tabBarGeometry(insets.bottom);
   const bundle = useBundle(); const progress = useProgress(); const examDate = useSettings((s) => s.examDate);
   const [now, setNow] = useState(stamp);
   useFocusEffect(useCallback(() => {
@@ -33,7 +33,7 @@ export default function Home() {
   }, [theme.dark]));
   const data = useMemo(() => snapshot(bundle, progress, now), [bundle, progress, now]);
   const open = (route: string) => router.push(route, { withAnchor: needsTabAnchor(route) });
-  return <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: homeBottomPadding(tabBarHeight, insets.bottom) }]}>
+  return <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: homeBottomPadding(geometry.height + geometry.marginBottom, 0) }]}>
     <View style={styles.header}>
       <Text variant='titleLarge' style={styles.headerTitle}>{t('home.greeting')}</Text>
       <Pressable accessibilityRole='button' accessibilityLabel={t('settings.title')} onPress={() => open('/settings')} style={({ pressed }) => [styles.settings, { backgroundColor: theme.colors.surface }, pressed && styles.pressed]}><HomeIcon kind='settings' size={22} color={theme.colors.primary} /></Pressable>
