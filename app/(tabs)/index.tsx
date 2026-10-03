@@ -15,6 +15,7 @@ import { useNextStepText } from '../../src/i18n/nextStep';
 import { snapshot } from '../../src/logic/dashboardStats';
 import { completionPreviewPercent, homeFocusTarget } from '../../src/logic/homeFocus';
 import { homeExamDate, homeStep } from '../../src/logic/homePresentation';
+import { HOME_STATUS_ITEM, HOME_STATUS_ROW } from '../../src/logic/homeStatusLayout';
 import { needsTabAnchor } from '../../src/navigation/tabRoots';
 import { useProgress } from '../../src/store/progress';
 import { useSettings } from '../../src/store/settings';
@@ -64,8 +65,8 @@ export default function Home() {
     <View style={styles.section}>
       <Text variant='titleMedium'>{focusText.today}</Text>
       <View style={styles.today}>
-        <View style={styles.todayItem}><StatCard icon='🔄' value={String(data.review.due)} label={t('homeUi.dueLabel')} onPress={() => open('/review')} /></View>
-        <View style={styles.todayItem}><StatCard icon='📅' value={date.value} label={dateLabel} onPress={() => open('/settings')} /></View>
+        <View style={styles.todayItem}><StatCard fill={false} icon='🔄' value={String(data.review.due)} label={t('homeUi.dueLabel')} onPress={() => open('/review')} /></View>
+        <View style={styles.todayItem}><StatCard fill={false} icon='📅' value={date.value} label={dateLabel} onPress={() => open('/settings')} /></View>
         <View style={styles.todayItem}><StudyStreakCard streak={progress.streak} now={now} legacySaved={progress.legacyActivityStreak !== null} /></View>
       </View>
     </View>
@@ -100,8 +101,8 @@ const styles = StyleSheet.create({
   alternative: { gap: 4 },
   center: { textAlign: 'center' },
   section: { gap: 10 },
-  today: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  todayItem: { flex: 1, minWidth: 130 },
+  today: HOME_STATUS_ROW,
+  todayItem: HOME_STATUS_ITEM,
   progressRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   progressText: { flex: 1, minWidth: 170, gap: 4 },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
