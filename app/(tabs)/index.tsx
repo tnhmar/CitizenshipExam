@@ -6,48 +6,27 @@ import { AppState, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { Text, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeIcon } from '../../src/components/HomeIcon';
-import { HomeOverview } from '../../src/components/HomeOverview';
 import { HomeRecommendation } from '../../src/components/HomeRecommendation';
 import { HomeToday } from '../../src/components/HomeToday';
 import { Panel } from '../../src/components/Panel';
 import { PreparationHero } from '../../src/components/PreparationHero';
 import { useBundle } from '../../src/content/useBundle';
-import { snapshot } from '../../src/logic/dashboardStats';
+import { validScore } from '../../src/logic/completion';
+import { snapshot, type DashboardSnapshot } from '../../src/logic/dashboardStats';
 import { homeBottomPadding } from '../../src/logic/homeLayout';
 import { PREPARATION_HEADER_RED } from '../../src/logic/preparationLayout';
 import { tabBarGeometry } from '../../src/navigation/tabGeometry';
 import { needsTabAnchor } from '../../src/navigation/tabRoots';
 import { useProgress } from '../../src/store/progress';
 import { useSettings } from '../../src/store/settings';
-
 const stamp = (): number => Date.now();
-export default function Home() {
-  const { t } = useTranslation(); const router = useRouter(); const theme = useTheme();
-  const insets = useSafeAreaInsets(); const geometry = tabBarGeometry(insets.bottom);
-  const bundle = useBundle(); const progress = useProgress(); const examDate = useSettings((s) => s.examDate);
-  const [now, setNow] = useState(stamp);
-  useFocusEffect(useCallback(() => {
-    setStatusBarStyle('light');
-    const refresh = () => setNow(stamp()); const initial = setTimeout(refresh, 0); const timer = setInterval(refresh, 60000);
-    const listener = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
-    return () => { clearTimeout(initial); clearInterval(timer); listener.remove(); };
-  }, []));
-  const data = useMemo(() => snapshot(bundle, progress, now), [bundle, progress, now]);
-  const open = (route: string) => router.push(route, { withAnchor: needsTabAnchor(route) });
-  return <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ paddingBottom: homeBottomPadding(geometry.height + geometry.marginBottom, 0) }}>
-    <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
-      <View style={styles.headerInner}>
-        <Text variant='headlineSmall' style={styles.headerTitle}>{t('home.greeting')}</Text>
-        <Pressable accessibilityRole='button' accessibilityLabel={t('settings.title')} onPress={() => open('/settings')} style={({ pressed }) => [styles.settings, pressed && styles.pressed]}><HomeIcon kind='settings' size={22} color='#FFFFFF' /></Pressable>
-      </View>
-      <View style={styles.heroInner}><PreparationHero data={data} now={now} onProgress={() => open('/progress')} /></View>
-    </View>
-    <View style={styles.body}>
-      {bundle.sample ? <Panel tone='warning'><Text>{t('common.sampleBanner')}</Text></Panel> : null}
-      <HomeOverview data={data} onProgress={() => open('/progress')} onExams={() => open('/exams')} />
-      <HomeRecommendation data={data} bundle={bundle} onOpen={open} />
-      <HomeToday due={data.review.due} examDate={examDate} streak={progress.streak} now={now} legacySaved={progress.legacyActivityStreak !== null} onReview={() => open('/review')} onDate={() => open('/settings')} />
-    </View>
-  </ScrollView>;
+function EvidenceSummary({ data, now, onProgress }: { data: DashboardSnapshot; now: number; onProgress: () => void }) {
+  const { i18n } = useTranslation(); const theme = useTheme(); const french = i18n.language.startsWith('fr'); const completion = data.completion;
+  const course = Number.isSafeInteger(completion.lessonsTotal) && completion.lessonsTotal > 0 && Number.isSafeInteger(completion.lessonsCompleted) && completion.lessonsCompleted >= 0 && completion.lessonsCompleted <= completion.lessonsTotal;
+  const practice = data.evidence.practice; const practiceValid = validScore(practice.correct, practice.total) && practice.accuracy !== null && Number.isFinite(practice.accuracy) && Math.abs(practice.accuracy - practice.correct / practice.total) < 1e-9;
+  const mocks = data.exams.recentMocks.filter((row) => validScore(row.correct, row.total) && row.attempt.finishedAt !== null && Number.isFinite(row.attempt.finishedAt) && row.attempt.finishedAt <= now && row.attempt.finishedAt >= now - 30 * 86400000).sort((a, b) => (b.attempt.finishedAt ?? 0) - (a.attempt.finishedAt ?? 0)).slice(0, 5); const latest = mocks[0] ?? null;
+  const rows = [{ label: french ? 'Cours' : 'Course', value: course ? `${completion.lessonsCompleted}/${completion.lessonsTotal}` : '—', detail: course ? `${completion.chaptersCompleted}/${completion.chaptersTotal} ${french ? 'chapitres' : 'chapters'}` : '—' }, { label: french ? 'Entraînement' : 'Practice', value: practiceValid ? `${Math.round((practice.accuracy ?? 0) * 100)}%` : '—', detail: practiceValid ? `${practice.distinctConcepts} concepts` : french ? 'Pas encore évalué' : 'Not assessed yet' }, { label: french ? 'Examens blancs' : 'Mocks', value: latest ? `${latest.correct}/${latest.total}` : '—', detail: latest ? `${mocks.length} ${french ? 'tentatives' : 'attempts'}` : french ? 'Aucun résultat récent' : 'No recent result' }];
+  return <Panel style={styles.evidence}><View style={styles.evidenceHeader}><Text variant='titleMedium' style={styles.grow}>{french ? 'Vos indicateurs' : 'Your evidence'}</Text><Pressable accessibilityRole='button' accessibilityLabel={french ? 'Voir les progrès détaillés' : 'See detailed progress'} onPress={onProgress} style={styles.link}><Text variant='labelLarge' style={{ color: theme.colors.primary }}>{french ? 'Voir les progrès' : 'View progress'}</Text></Pressable></View>{rows.map((row) => <View key={row.label} style={[styles.evidenceRow, { borderColor: theme.colors.outlineVariant }]}><Text variant='labelLarge' style={styles.evidenceLabel}>{row.label}</Text><View style={styles.evidenceValue}><Text variant='titleSmall'>{row.value}</Text><Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{row.detail}</Text></View></View>)}<Text variant='labelSmall' style={{ color: theme.colors.onSurfaceVariant }}>{french ? 'Ces indicateurs restent distincts du score de préparation estimé.' : 'These indicators stay separate from the estimated preparation score.'}</Text></Panel>;
 }
-const styles = StyleSheet.create({ headerBand: { backgroundColor: PREPARATION_HEADER_RED, paddingBottom: 14 }, headerInner: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }, headerTitle: { flex: 1, fontWeight: '600', color: '#FFFFFF' }, settings: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 10, backgroundColor: 'rgba(255,255,255,0.12)' }, heroInner: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16 }, body: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, gap: 14 }, pressed: { opacity: 0.75 } });
+export default function Home() { const { t } = useTranslation(); const router = useRouter(); const theme = useTheme(); const insets = useSafeAreaInsets(); const geometry = tabBarGeometry(insets.bottom); const bundle = useBundle(); const progress = useProgress(); const examDate = useSettings((s) => s.examDate); const [now, setNow] = useState(stamp); useFocusEffect(useCallback(() => { setStatusBarStyle('light'); const refresh = () => setNow(stamp()); const initial = setTimeout(refresh, 0); const timer = setInterval(refresh, 60000); const listener = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); }); return () => { clearTimeout(initial); clearInterval(timer); listener.remove(); }; }, [])); const data = useMemo(() => snapshot(bundle, progress, now), [bundle, progress, now]); const open = (route: string) => router.push(route, { withAnchor: needsTabAnchor(route) }); return <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ paddingBottom: homeBottomPadding(geometry.height + geometry.marginBottom, 0) }}><View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}><View style={styles.headerInner}><Text variant='headlineSmall' style={styles.headerTitle}>{t('home.greeting')}</Text><Pressable accessibilityRole='button' accessibilityLabel={t('settings.title')} onPress={() => open('/settings')} style={({ pressed }) => [styles.settings, pressed && styles.pressed]}><HomeIcon kind='settings' size={22} color='#FFFFFF' /></Pressable></View><View style={styles.heroInner}><PreparationHero data={data} now={now} onProgress={() => open('/progress')} /></View></View><View style={styles.body}>{bundle.sample ? <Panel tone='warning'><Text>{t('common.sampleBanner')}</Text></Panel> : null}<EvidenceSummary data={data} now={now} onProgress={() => open('/progress')} /><HomeRecommendation data={data} bundle={bundle} onOpen={open} /><HomeToday due={data.review.due} examDate={examDate} streak={progress.streak} now={now} legacySaved={progress.legacyActivityStreak !== null} onReview={() => open('/review')} onDate={() => open('/settings')} /></View></ScrollView>; }
+const styles = StyleSheet.create({ headerBand: { backgroundColor: PREPARATION_HEADER_RED, paddingBottom: 14 }, headerInner: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }, headerTitle: { flex: 1, fontWeight: '600', color: '#FFFFFF' }, settings: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 10, backgroundColor: 'rgba(255,255,255,0.12)' }, heroInner: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16 }, body: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, gap: 14 }, pressed: { opacity: 0.75 }, evidence: { gap: 8 }, evidenceHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }, grow: { flex: 1 }, link: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 }, evidenceRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, paddingVertical: 9, borderTopWidth: 1 }, evidenceLabel: { minWidth: 110 }, evidenceValue: { alignItems: 'flex-end', flexShrink: 1 } });
