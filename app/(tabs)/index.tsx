@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { AppState, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HomeOverview } from '../../src/components/HomeOverview';
 import { Panel } from '../../src/components/Panel';
-import { ScoreRing } from '../../src/components/ScoreRing';
 import { StatCard } from '../../src/components/StatCard';
 import { StudyStreakCard } from '../../src/components/StudyStreakCard';
 import { useBundle } from '../../src/content/useBundle';
@@ -13,7 +13,7 @@ import { useHomeFocusText } from '../../src/i18n/homeFocus';
 import { useHomeLearningText } from '../../src/i18n/homeLearning';
 import { useNextStepText } from '../../src/i18n/nextStep';
 import { snapshot } from '../../src/logic/dashboardStats';
-import { completionPreviewPercent, homeFocusTarget } from '../../src/logic/homeFocus';
+import { homeFocusTarget } from '../../src/logic/homeFocus';
 import { homeExamDate, homeStep } from '../../src/logic/homePresentation';
 import { HOME_STATUS_ITEM, HOME_STATUS_ROW } from '../../src/logic/homeStatusLayout';
 import { needsTabAnchor } from '../../src/navigation/tabRoots';
@@ -41,8 +41,6 @@ export default function Home() {
   const reason = target.canValidate ? nextText.reasons[data.nextAction.kind] : nextText.quizUnavailable;
   const date = homeExamDate(examDate, now);
   const dateLabel = date.kind === 'unset' ? t('homeUi.setDate') : date.kind === 'past' ? t('homeUi.testPassed') : date.kind === 'today' ? t('homeUi.testToday') : t('homeUi.testIn', { count: date.days ?? 0 });
-  const completion = data.completion;
-  const percent = completionPreviewPercent(completion.lessonsCompleted, completion.lessonsTotal);
   const open = (route: string) => router.push(route, { withAnchor: needsTabAnchor(route) });
   const tile = (icon: string, label: string, route: string) => <Panel onPress={() => open(route)} accessibilityLabel={label} style={styles.tile}><Text style={styles.tileIcon}>{icon}</Text><Text variant='titleSmall' style={styles.center}>{label}</Text></Panel>;
   return <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
@@ -51,6 +49,7 @@ export default function Home() {
       <Button mode='text' compact accessibilityLabel={t('settings.title')} onPress={() => open('/settings')}>{t('settings.title')}</Button>
     </View>
     {bundle.sample ? <Panel tone='warning'><Text>{t('common.sampleBanner')}</Text></Panel> : null}
+    <HomeOverview data={data} onProgress={() => open('/progress')} onExams={() => open('/exams')} />
     <Panel>
       <Text variant='labelLarge' style={{ color: theme.colors.onSurfaceVariant }}>{text.next}</Text>
       {target.subject ? <Text variant='titleLarge'>{target.subject}</Text> : null}
@@ -70,18 +69,6 @@ export default function Home() {
         <View style={styles.todayItem}><StudyStreakCard streak={progress.streak} now={now} legacySaved={progress.legacyActivityStreak !== null} /></View>
       </View>
     </View>
-    <Panel>
-      <Text variant='titleMedium'>{text.completion}</Text>
-      <View style={styles.progressRow}>
-        <ScoreRing value={percent} label={`${completion.lessonsCompleted}/${completion.lessonsTotal}`} size={80} />
-        <View style={styles.progressText}>
-          <Text variant='bodyMedium'>{text.lessonsCompleted}: {completion.lessonsCompleted}/{completion.lessonsTotal}</Text>
-          <Text variant='bodyMedium'>{text.chaptersCompleted}: {completion.chaptersCompleted}/{completion.chaptersTotal}</Text>
-        </View>
-      </View>
-      <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{focusText.progressHint}</Text>
-      <Button mode='outlined' onPress={() => open('/progress')}>{focusText.viewProgress}</Button>
-    </Panel>
     <View style={styles.section}>
       <Text variant='titleMedium'>{focusText.shortcuts}</Text>
       <View style={styles.tiles}>
@@ -103,8 +90,6 @@ const styles = StyleSheet.create({
   section: { gap: 10 },
   today: HOME_STATUS_ROW,
   todayItem: HOME_STATUS_ITEM,
-  progressRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
-  progressText: { flex: 1, minWidth: 170, gap: 4 },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { flexBasis: '46%', flexGrow: 1, minWidth: 120, alignItems: 'center', paddingVertical: 16, gap: 6 },
   tileIcon: { fontSize: 24 },
