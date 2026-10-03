@@ -10,16 +10,12 @@ import { useSettings } from '../../src/store/settings';
 import { headerOptions } from '../../src/theme';
 
 export default function TabsLayout() {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const path = usePathname();
-  const router = useRouter();
-  const onboarded = useSettings((s) => s.onboarded);
+  const { t } = useTranslation(); const theme = useTheme(); const insets = useSafeAreaInsets();
+  const path = usePathname(); const router = useRouter(); const onboarded = useSettings((s) => s.onboarded);
   const geometry = tabBarGeometry(insets.bottom);
   if (!onboarded) return <Redirect href='/onboarding' />;
   return <Tabs screenOptions={{
-    ...headerOptions(theme), tabBarActiveTintColor: theme.colors.primary, tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+    ...headerOptions(theme), sceneStyle: { backgroundColor: theme.colors.background }, tabBarActiveTintColor: theme.colors.primary, tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
     tabBarLabelPosition: 'below-icon', tabBarLabelStyle: { fontWeight: '600', fontSize: 11, marginBottom: 2 },
     tabBarIconStyle: { width: 48, height: 34, marginBottom: 2 }, tabBarItemStyle: { paddingTop: 4, paddingBottom: 4 }, tabBarHideOnKeyboard: true,
     tabBarStyle: isFocusedExamPath(path) ? { display: 'none' } : { height: geometry.height, marginHorizontal: 12, marginBottom: geometry.marginBottom, borderRadius: 28, backgroundColor: theme.colors.surface, borderTopWidth: 0, elevation: 10, shadowColor: '#000000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, paddingTop: 6, paddingBottom: geometry.bottom },
