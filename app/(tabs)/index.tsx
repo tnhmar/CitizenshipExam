@@ -10,6 +10,7 @@ import { HomeOverview } from '../../src/components/HomeOverview';
 import { HomeRecommendation } from '../../src/components/HomeRecommendation';
 import { HomeToday } from '../../src/components/HomeToday';
 import { Panel } from '../../src/components/Panel';
+import { PreparationHero } from '../../src/components/PreparationHero';
 import { useBundle } from '../../src/content/useBundle';
 import { snapshot } from '../../src/logic/dashboardStats';
 import { homeBottomPadding } from '../../src/logic/homeLayout';
@@ -39,6 +40,7 @@ export default function Home() {
         <Text variant='headlineSmall' style={styles.headerTitle}>{t('home.greeting')}</Text>
         <Pressable accessibilityRole='button' accessibilityLabel={t('settings.title')} onPress={() => open('/settings')} style={({ pressed }) => [styles.settings, pressed && styles.pressed]}><HomeIcon kind='settings' size={22} color='#FFFFFF' /></Pressable>
       </View>
+      <View style={styles.heroInner}><PreparationHero data={data} now={now} onProgress={() => open('/progress')} /></View>
     </View>
     <View style={styles.body}>
       {bundle.sample ? <Panel tone='warning'><Text>{t('common.sampleBanner')}</Text></Panel> : null}
@@ -48,4 +50,4 @@ export default function Home() {
     </View>
   </ScrollView>;
 }
-const styles = StyleSheet.create({ headerBand: { backgroundColor: PREPARATION_HEADER_RED, paddingBottom: 14 }, headerInner: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }, headerTitle: { flex: 1, fontWeight: '600', color: '#FFFFFF' }, settings: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 10, backgroundColor: 'rgba(255,255,255,0.12)' }, body: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, gap: 14 }, pressed: { opacity: 0.75 } });
+const styles = StyleSheet.create({ headerBand: { backgroundColor: PREPARATION_HEADER_RED, paddingBottom: 14 }, headerInner: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }, headerTitle: { flex: 1, fontWeight: '600', color: '#FFFFFF' }, settings: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 10, backgroundColor: 'rgba(255,255,255,0.12)' }, heroInner: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16 }, body: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, gap: 14 }, pressed: { opacity: 0.75 } });

@@ -1,0 +1,23 @@
+import { describe, expect, test } from '@jest/globals';
+import { makeBundle } from '../test-utils/fixtures';
+import { initialLearning } from './completion';
+import { snapshot } from './dashboardStats';
+import { initialAssessmentHistory, type ExamEvidence } from './learningStats';
+import { PREPARATION_WEIGHTS, preparationEstimate } from './preparation';
+const bundle = makeBundle(); const now = new Date(2026, 9, 3, 12).getTime();
+const empty = snapshot(bundle, { ...initialLearning(), ...initialAssessmentHistory(), attempts: [], cards: {}, active: null }, now);
+const mock = (id: string, correct = 15, at = now): ExamEvidence => ({ attempt: { id, examId: bundle.exams[0].id, lang: bundle.lang, seed: 1, questionIds: [], startedAt: at - 1000, finishedAt: at, limitMs: 60000, answers: [] }, correct, total: 20, answered: 20, required: 15, passed: correct >= 15, ratio: correct / 20 });
+const full = () => ({ ...empty, completion: { ...empty.completion, lessonsCompleted: 5, lessonsTotal: 10, chaptersCompleted: 1, chaptersTotal: 2 }, evidence: { ...empty.evidence, practice: { correct: 8, total: 10, distinctConcepts: 10, accuracy: 0.8 } }, exams: { ...empty.exams, recentMocks: [mock('a'), mock('b', 15, now - 1)] } });
+describe('transparent preparation indicator', () => {
+  test('weights total one without renormalizing missing components', () => { expect(PREPARATION_WEIGHTS.course + PREPARATION_WEIGHTS.practice + PREPARATION_WEIGHTS.mocks).toBe(1); });
+  test('uses the approved 50/30/20 weighting when all components qualify', () => { const value = preparationEstimate(full(), now); expect(value.state).toBe('available'); expect(value.coursePercent).toBe(50); expect(value.percent).toBeCloseTo(64); });
+  test('empty evidence is a dash state, not a zero readiness score', () => { expect(preparationEstimate(empty, now)).toMatchObject({ state: 'empty', percent: null }); });
+  test('course-only progress remains explicitly separate from the overall estimate', () => { const data = full(); expect(preparationEstimate({ ...empty, completion: data.completion }, now)).toMatchObject({ state: 'courseOnly', percent: null, coursePercent: 50 }); });
+  test('missing practice is not replaced with a failing practice score', () => { const data = full(); expect(preparationEstimate({ ...data, evidence: empty.evidence }, now)).toMatchObject({ state: 'insufficient', percent: null, practicePercent: null }); });
+  test('missing mocks are not replaced with a failing mock score', () => { const data = full(); expect(preparationEstimate({ ...data, exams: empty.exams }, now)).toMatchObject({ state: 'insufficient', percent: null, mockPercent: null }); });
+  test('small samples keep the combined percentage unavailable', () => { const data = full(); expect(preparationEstimate({ ...data, evidence: { ...data.evidence, practice: { correct: 4, total: 4, distinctConcepts: 4, accuracy: 1 } } }, now).percent).toBeNull(); expect(preparationEstimate({ ...data, exams: { ...data.exams, recentMocks: [mock('a')] } }, now).percent).toBeNull(); });
+  test('an actually assessed zero can be zero when all components qualify', () => { const data = full(); const value = preparationEstimate({ ...data, completion: { ...data.completion, lessonsCompleted: 0, chaptersCompleted: 0 }, evidence: { ...data.evidence, practice: { correct: 0, total: 10, distinctConcepts: 10, accuracy: 0 } }, exams: { ...data.exams, recentMocks: [mock('a', 0), mock('b', 0)] } }, now); expect(value.state).toBe('available'); expect(value.percent).toBe(0); });
+  test('old, future, unfinished and untimed mocks cannot supply current evidence', () => { const data = full(); const rows = [mock('old', 20, now - 31 * 86400000), mock('future', 20, now + 1), { ...mock('unfinished'), attempt: { ...mock('unfinished').attempt, finishedAt: null } }, { ...mock('untimed'), attempt: { ...mock('untimed').attempt, limitMs: 0 } }]; expect(preparationEstimate({ ...data, exams: { ...data.exams, recentMocks: rows } }, now)).toMatchObject({ mockCount: 0, mockPercent: null, percent: null }); });
+  test('at most five mocks contribute their own normalized score ratios', () => { const data = full(); const rows = Array.from({ length: 7 }, (_, index) => mock(String(index), 15, now - index)); expect(preparationEstimate({ ...data, exams: { ...data.exams, recentMocks: rows } }, now)).toMatchObject({ mockCount: 5, mockPercent: 75 }); });
+  test('malformed or contradictory practice is absent evidence, not a percentage', () => { const data = full(); for (const accuracy of [NaN, 1.5, 0.1]) expect(preparationEstimate({ ...data, evidence: { ...data.evidence, practice: { ...data.evidence.practice, accuracy } } }, now).practicePercent).toBeNull(); });
+});
