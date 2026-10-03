@@ -1,15 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import Svg, { ClipPath, Defs, Path, Rect } from 'react-native-svg';
 import { usePreparationText } from '../i18n/preparation';
 import type { DashboardSnapshot } from '../logic/dashboardStats';
 import { preparationEstimate } from '../logic/preparation';
-
-const SIZE = 160;
-const VIEWBOX = 120;
-const MAPLE_LEAF_PATH =
-  'M60 4 L68 26 L87 13 L82 38 L107 33 L90 52 L116 61 L90 70 L101 94 L78 84 L75 116 L60 95 L45 116 L42 84 L19 94 L30 70 L4 61 L30 52 L13 33 L38 38 L33 13 L52 26 Z';
 
 export function PreparationHero({
   data,
@@ -27,14 +21,16 @@ export function PreparationHero({
   const shownPercent = model.state === 'available' ? model.percent : null;
   const percent =
     shownPercent === null || !Number.isFinite(shownPercent)
-      ? 0
+      ? null
       : Math.max(0, Math.min(100, shownPercent));
 
-  const value = shownPercent === null ? '—' : `${Math.round(percent)}%`;
-  const fillHeight = (percent / 100) * VIEWBOX;
+  const value = percent === null ? '—' : `${Math.round(percent)}%`;
+  const visibleLabel = i18n.language.startsWith('fr')
+    ? 'Votre préparation'
+    : 'Your preparation';
 
   const accessibilityLabel = [
-    text.title,
+    visibleLabel,
     value,
     model.state === 'available' && model.confidence < 0.5
       ? text.lowConfidence
@@ -53,55 +49,8 @@ export function PreparationHero({
         onPress={onProgress}
         style={({ pressed }) => [styles.control, pressed && styles.pressed]}
       >
-        <Svg
-          width={SIZE}
-          height={SIZE}
-          viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
-          accessible={false}
-          importantForAccessibility='no-hide-descendants'
-        >
-          <Defs>
-            <ClipPath id='preparation-maple-leaf'>
-              <Path d={MAPLE_LEAF_PATH} />
-            </ClipPath>
-          </Defs>
-
-          <Path
-            d={MAPLE_LEAF_PATH}
-            fill='rgba(255,255,255,0.12)'
-            stroke='rgba(255,255,255,0.94)'
-            strokeWidth={3}
-            strokeLinejoin='round'
-          />
-
-          {shownPercent !== null ? (
-            <Rect
-              x={0}
-              y={VIEWBOX - fillHeight}
-              width={VIEWBOX}
-              height={fillHeight}
-              fill='#FFFFFF'
-              clipPath='url(#preparation-maple-leaf)'
-            />
-          ) : null}
-
-          <Path
-            d={MAPLE_LEAF_PATH}
-            fill='transparent'
-            stroke='rgba(255,255,255,0.94)'
-            strokeWidth={3}
-            strokeLinejoin='round'
-          />
-        </Svg>
-
-        <View
-          pointerEvents='none'
-          accessible={false}
-          importantForAccessibility='no-hide-descendants'
-          style={styles.scoreBadge}
-        >
-          <Text style={styles.value}>{value}</Text>
-        </View>
+        <Text style={styles.label}>{visibleLabel}</Text>
+        <Text style={styles.percentage}>{value}</Text>
       </Pressable>
     </View>
   );
@@ -110,31 +59,29 @@ export function PreparationHero({
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   control: {
-    width: 176,
-    height: 176,
+    width: '100%',
+    minHeight: 116,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 88,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  scoreBadge: {
-    position: 'absolute',
-    minWidth: 92,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
-    backgroundColor: '#641010',
+  label: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  value: {
+  percentage: {
     color: '#FFFFFF',
-    fontSize: 36,
-    lineHeight: 44,
-    fontWeight: '800',
+    fontSize: 64,
+    lineHeight: 76,
+    fontWeight: '700',
     textAlign: 'center',
   },
   pressed: {
