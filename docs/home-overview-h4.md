@@ -1,0 +1,13 @@
+# Balanced Home: H4 spacing, status strip and navigation cleanup
+
+The Option 1 Home now consists of a compact greeting/settings header, the global overview, the focused recommendation and one compact Today panel. The Explorer grid is removed because the existing bottom tabs already provide Learn, Review, Exams and Progress. No destination screen, tab or stored data is deleted. PR 8 and its audio branch remain untouched.
+
+Home status actions now use consistent decorative outline SVG icons, with full accessible button labels. Review opens the review list; date opens Settings; study days opens the same bilingual What counts explanation with legacy-migration wording. The streak definition, current-day state and best-in-Progress behavior are unchanged. An unset date uses a dash and Set date, not a giant plus card. A past date is labelled as a past date, not an exam result.
+
+The Today panel measures its content width and adapts from three to two to one columns with font scale. Tiles have content-driven heights and no vertical flex-fill. The overview also measures its own inner width and stacks charts for narrower/large-text cases instead of relying on a fixed percentage column assumption. SVG chart data and statistics remain unchanged. Plot height is bounded for the small sparkline, not used to impose a large card height.
+
+Overview links and recommendation actions use wrapping Text within accessible Pressables, avoiding single-line button-label truncation. Main actions keep at least a 44-unit touch target. No numberOfLines cap hides requirements or warnings. The screen is width-bounded and centered on larger displays, with smaller section gaps. Scroll clearance uses the measured bottom-tab height and safe inset instead of a large fixed blank spacer. Home sets status-bar contrast while focused and restores the existing light style when leaving; the app root and audio integration are unchanged.
+
+H1-H4 implementation is complete in this branch, not a claim of passing CI, a correct native render, or confirmed accessibility behavior. Six layout-policy tests are included but unexecuted. No tests, lint, typecheck, build or before/after verification were run, as requested.
+
+Manual acceptance still needed: the reported Android narrow-screen layout; no giant empty cards; French/English and larger text; fresh/zero history, one mock, five mocks and practice-zero states; study-day states and explanation; last row above floating bottom navigation; overview versus Progress data consistency; direct Validate vs Review; live exam timer warning; settings/back/tab navigation; no progress or reminder changes. Keep the PR draft until acceptance is satisfactory.

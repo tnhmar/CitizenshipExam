@@ -1,5 +1,5 @@
-import { StyleSheet, View } from 'react-native';
-import { Button, Text, useTheme } from 'react-native-paper';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, useTheme } from 'react-native-paper';
 import { useHomeRecommendationText } from '../i18n/homeRecommendation';
 import type { DashboardSnapshot } from '../logic/dashboardStats';
 import { homeRecommendationModel } from '../logic/homeRecommendation';
@@ -17,12 +17,12 @@ export function HomeRecommendation({ data, bundle, onOpen }: { data: Pick<Dashbo
     {primary.context ? <Text variant='labelSmall' style={{ color: theme.colors.onSurfaceVariant }}>{primary.context}</Text> : null}
     {primary.subject ? <Text variant='titleMedium' style={styles.subject}>{primary.subject}</Text> : null}
     <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.reasons[primary.reason]}</Text>
-    <Button mode='contained' contentStyle={styles.primary} accessibilityLabel={primaryAccessibility} onPress={() => onOpen(primary.route)}>{label}</Button>
+    <Pressable accessibilityRole='button' accessibilityLabel={primaryAccessibility} onPress={() => onOpen(primary.route)} style={({ pressed }) => [styles.primary, { backgroundColor: theme.colors.primary }, pressed && styles.pressed]}><Text variant='labelLarge' style={[styles.actionLabel, { color: theme.colors.onPrimary }]}>{label}</Text></Pressable>
     {secondary ? <View style={styles.alternative}>
       {model.showExamWarning ? <Text variant='bodySmall' style={{ color: theme.colors.onSurfaceVariant }}>{text.examWarning}</Text> : null}
-      <Button compact mode='text' contentStyle={styles.secondary} accessibilityLabel={[text.labels[secondary.label], secondary.subject].filter(Boolean).join('. ')} onPress={() => onOpen(secondary.route)}>{text.labels[secondary.label]}</Button>
+      <Pressable accessibilityRole='button' accessibilityLabel={[text.labels[secondary.label], secondary.subject].filter(Boolean).join('. ')} onPress={() => onOpen(secondary.route)} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}><Text variant='labelLarge' style={[styles.actionLabel, { color: theme.colors.primary }]}>{text.labels[secondary.label]}</Text></Pressable>
       {secondary.subject && secondary.subject !== primary.subject ? <Text variant='labelSmall' style={styles.preview}>{secondary.subject}</Text> : null}
     </View> : null}
   </Panel>;
 }
-const styles = StyleSheet.create({ card: { gap: 6 }, subject: { fontWeight: '600' }, primary: { minHeight: 44 }, alternative: { gap: 2 }, secondary: { minHeight: 36 }, preview: { textAlign: 'center' } });
+const styles = StyleSheet.create({ card: { gap: 6 }, subject: { fontWeight: '600' }, primary: { minHeight: 44, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }, alternative: { gap: 2 }, secondary: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' }, actionLabel: { textAlign: 'center', fontWeight: '600' }, pressed: { opacity: 0.75 }, preview: { textAlign: 'center' } });

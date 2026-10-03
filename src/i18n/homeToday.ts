@@ -1,0 +1,4 @@
+import { useTranslation } from 'react-i18next';
+const en = { title: 'Today', review: 'Due reviews', date: 'Exam date', streak: 'Study days', setDate: 'Set date', today: 'Today', past: 'Past', updateDate: 'Update date', days: '{{days}}d', states: { doneToday: 'Studied today', continueToday: 'Continue today', restart: 'Start again', notStarted: 'Start today' } };
+const fr: typeof en = { title: 'Aujourd’hui', review: 'À réviser', date: 'Date d’examen', streak: 'Jours d’étude', setDate: 'Définir la date', today: 'Aujourd’hui', past: 'Passée', updateDate: 'Modifier la date', days: 'J−{{days}}', states: { doneToday: 'Étudié aujourd’hui', continueToday: 'À poursuivre', restart: 'À recommencer', notStarted: 'Commencer aujourd’hui' } };
+export function useHomeTodayText(): typeof en { const { i18n } = useTranslation(); return i18n.language.startsWith('fr') ? fr : en; }
