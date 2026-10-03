@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, Text, useColorScheme } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useSharedAudioLifecycle } from '../src/audio/lessonAudio';
 import { useReminderSync } from '../src/hooks/useReminderSync';
 import i18n from '../src/i18n';
 import { useHydrated } from '../src/store/hydration';
@@ -19,13 +20,13 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
     <Pressable accessibilityRole='button' onPress={retry}><Text style={{ fontSize: 16, color: '#C22020' }}>Try again</Text></Pressable>
   </ScrollView>;
 }
-
 export default function RootLayout() {
   const scheme = useColorScheme();
   const hydrated = useHydrated();
   const lang = useSettings((s) => s.lang);
   const mode = useSettings((s) => s.themeMode);
   const { t } = useTranslation();
+  useSharedAudioLifecycle();
   useReminderSync(hydrated);
   const dark = mode === 'system' ? scheme === 'dark' : mode === 'dark';
   const theme = dark ? darkTheme : lightTheme;

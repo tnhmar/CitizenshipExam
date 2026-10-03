@@ -58,7 +58,7 @@ function LessonReader({ lessonId, bundle }: { lessonId: number; bundle: ContentB
         <Button mode='outlined' contentStyle={styles.nextButton} onPress={goNext}>{nextId !== undefined ? t('learn.nextLesson') : t('learn.backToChapter')}</Button>
       </View>
     </ScrollView>
-    {audio ? <View style={[styles.footer, { backgroundColor: theme.colors.background }]}><AudioBar source={audio.audio} onTime={setMs} follow={follow} onToggleFollow={() => setFollow(!follow)} onJump={jump} /></View> : null}
+    {audio ? <View style={[styles.footer, { backgroundColor: theme.colors.background }]}><AudioBar source={audio.audio} lessonId={lesson.id} lang={bundle.lang} title={lesson.title} chapterTitle={chapter?.title ?? ''} onTime={setMs} follow={follow} onToggleFollow={() => setFollow(!follow)} onJump={jump} /></View> : null}
     <DefinitionSheet term={definition} onClose={() => setDefinition(null)} onOpen={(term) => { setDefinition(null); router.push(`/learn/glossary?termId=${term.id}`); }} />
   </View>;
 }
