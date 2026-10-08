@@ -11,11 +11,14 @@ import { useChapterFlowText } from '../../../src/i18n/chapterFlow';
 import { useCompletionText } from '../../../src/i18n/completion';
 import { courseCompleted, nextChapterTarget } from '../../../src/logic/chapterFlow';
 import { assessmentIds, chapterStatus, lessonStatus } from '../../../src/logic/completion';
+import { learningPassPercent } from '../../../src/logic/learningLevels';
 import { useProgress } from '../../../src/store/progress';
+import { useSettings } from '../../../src/store/settings';
 import { palette } from '../../../src/theme';
 
 export default function ChapterScreen() {
   const { t } = useTranslation(); const text = useCompletionText(); const flowText = useChapterFlowText(); const router = useRouter(); const theme = useTheme();
+  const passPercent = useSettings((s) => learningPassPercent(s.quizLevel));
   const { chapterId } = useLocalSearchParams<{ chapterId: string }>(); const bundle = useBundle(); const progress = useProgress();
   const chapter = bundle.chapters.find((c) => c.id === Number(chapterId)); if (!chapter) return null;
   const key = `chapter:${chapter.id}`; const count = chapter.lessonIds.length;
@@ -38,7 +41,7 @@ export default function ChapterScreen() {
       <Text variant='bodySmall' style={styles.nextTitle}>{next.title}</Text>
       <Button mode='contained' buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => router.push(next.route)}>{flowText.nextChapter}</Button>
       {quizIds.length > 0 ? <Button onPress={() => router.push(`/learn/quiz?kind=chapter&id=${chapter.id}`)}>{t('learn.chapterQuiz')}</Button> : null}
-    </View> : quizIds.length > 0 ? <View style={[styles.footer, { backgroundColor: theme.colors.background }]}><Pressable accessibilityRole='button' onPress={() => router.push(`/learn/quiz?kind=chapter&id=${chapter.id}`)} style={[styles.practice, { backgroundColor: theme.colors.secondary }]}><View style={styles.grow}><Text style={{ color: theme.colors.onSecondary }}>{t('learnUi.quizCount', { count: quizIds.length })} · 90%</Text>{latest ? <Text style={{ color: theme.colors.onSecondary }}>{text.latest}: {latest.correct}/{latest.total}</Text> : null}{best ? <Text style={{ color: theme.colors.onSecondary }}>{text.best}: {best.correct}/{best.total}</Text> : null}<Text variant='titleMedium' style={{ color: theme.colors.onSecondary }}>{passed ? '✓ ' : ''}{t('learn.chapterQuiz')}</Text></View><Text style={{ color: theme.colors.onSecondary, fontSize: 26 }}>›</Text></Pressable></View> : null}
+    </View> : quizIds.length > 0 ? <View style={[styles.footer, { backgroundColor: theme.colors.background }]}><Pressable accessibilityRole='button' onPress={() => router.push(`/learn/quiz?kind=chapter&id=${chapter.id}`)} style={[styles.practice, { backgroundColor: theme.colors.secondary }]}><View style={styles.grow}><Text style={{ color: theme.colors.onSecondary }}>{t('learnUi.quizCount', { count: quizIds.length })} · {passPercent}%</Text>{latest ? <Text style={{ color: theme.colors.onSecondary }}>{text.latest}: {latest.correct}/{latest.total}</Text> : null}{best ? <Text style={{ color: theme.colors.onSecondary }}>{text.best}: {best.correct}/{best.total}</Text> : null}<Text variant='titleMedium' style={{ color: theme.colors.onSecondary }}>{passed ? '✓ ' : ''}{t('learn.chapterQuiz')}</Text></View><Text style={{ color: theme.colors.onSecondary, fontSize: 26 }}>›</Text></Pressable></View> : null}
   </View>;
 }
 const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 16, gap: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, grow: { flex: 1, gap: 4 }, cover: { fontSize: 56, lineHeight: 70 }, meta: { flexDirection: 'row', gap: 10 }, badge: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, footer: { padding: 16, gap: 6 }, nextTitle: { textAlign: 'center' }, practice: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderRadius: 22 } });

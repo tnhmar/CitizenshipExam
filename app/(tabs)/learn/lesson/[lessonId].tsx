@@ -11,6 +11,7 @@ import { getAudio } from '../../../../src/content/audio';
 import { useBundle } from '../../../../src/content/useBundle';
 import { useCompletionText } from '../../../../src/i18n/completion';
 import { learningLessonQuizIds, lessonStatus } from '../../../../src/logic/completion';
+import { learningPassPercent } from '../../../../src/logic/learningLevels';
 import { makeGlossaryMatcher } from '../../../../src/logic/glossary';
 import { useProgress } from '../../../../src/store/progress';
 import { useSettings } from '../../../../src/store/settings';
@@ -23,6 +24,7 @@ export default function LessonScreen() {
 }
 function LessonReader({ lessonId, bundle }: { lessonId: number; bundle: ContentBundle }) {
   const { t } = useTranslation(); const text = useCompletionText(); const router = useRouter(); const theme = useTheme();
+  const passPercent = useSettings((s) => learningPassPercent(s.quizLevel));
   const textScale = useSettings((s) => s.textScale); const setTextScale = useSettings((s) => s.setTextScale);
   const setThemeMode = useSettings((s) => s.setThemeMode); const reduce = useSettings((s) => s.reduceMotion);
   const progress = useProgress(); const { startLesson: start, setLastRoute, addStudyTime, markLessonStudied } = progress;
@@ -54,7 +56,7 @@ function LessonReader({ lessonId, bundle }: { lessonId: number; bundle: ContentB
       {lesson.blocks.map((b, i) => <View key={i} onLayout={(e) => { blockY.current[i] = e.nativeEvent.layout.y; }} style={[styles.block, active.includes(i) && { backgroundColor: theme.colors.primaryContainer }]}>{b.k === 'li' ? <View style={styles.li}><Text style={{ fontSize: body, lineHeight: body * 1.65 }}>•</Text><RichText text={b.t} size={body} style={styles.grow} matcher={matcher} onTerm={openTerm} /></View> : <RichText text={b.t} variant={b.k === 'h' ? 'titleMedium' : 'bodyLarge'} size={b.k === 'h' ? 20 * textScale : body} style={b.k === 'h' ? styles.heading : undefined} matcher={matcher} onTerm={openTerm} />}</View>)}
       <View style={styles.actions}>
         <Text accessibilityLiveRegion='polite'>{status === 'completed' ? text.earned : quizIds.length ? text.passRule : noQuestions ? text.noQuiz : text.unavailable}</Text>
-        {quizIds.length > 0 ? <Pressable accessibilityRole='button' onPress={() => router.push(`/learn/quiz?kind=lesson&id=${lesson.id}`)} style={[styles.quizCta, { backgroundColor: theme.colors.secondary }]}><View style={styles.grow}><Text style={{ color: theme.colors.onSecondary }}>{t('learnUi.quizCount', { count: quizIds.length })} · 90%</Text><Text variant='titleMedium' style={{ color: theme.colors.onSecondary }}>{t('lessonUi.startQuiz')}</Text></View><Text style={{ color: theme.colors.onSecondary, fontSize: 26 }}>›</Text></Pressable> : noQuestions && status !== 'completed' ? <Button mode='contained' onPress={() => markLessonStudied(lesson.id, bundle.lang)}>{text.markStudied}</Button> : null}
+        {quizIds.length > 0 ? <Pressable accessibilityRole='button' onPress={() => router.push(`/learn/quiz?kind=lesson&id=${lesson.id}`)} style={[styles.quizCta, { backgroundColor: theme.colors.secondary }]}><View style={styles.grow}><Text style={{ color: theme.colors.onSecondary }}>{t('learnUi.quizCount', { count: quizIds.length })} · {passPercent}%</Text><Text variant='titleMedium' style={{ color: theme.colors.onSecondary }}>{t('lessonUi.startQuiz')}</Text></View><Text style={{ color: theme.colors.onSecondary, fontSize: 26 }}>›</Text></Pressable> : noQuestions && status !== 'completed' ? <Button mode='contained' onPress={() => markLessonStudied(lesson.id, bundle.lang)}>{text.markStudied}</Button> : null}
         <Button mode='outlined' contentStyle={styles.nextButton} onPress={goNext}>{nextId !== undefined ? t('learn.nextLesson') : t('learn.backToChapter')}</Button>
       </View>
     </ScrollView>

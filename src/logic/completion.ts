@@ -1,8 +1,11 @@
+import { useSettings } from '../store/settings';
 import type { Chapter, ContentBundle, Lesson } from '../types';
+import { learningPassPercent } from './learningLevels';
 import { chapterQuizIds } from './quiz';
 
+// Retained for legacy migration and existing explicit 90% callers.
 export const LEARNING_PASS_PERCENT = 90;
-export interface LearningQuizResult { correct: number; total: number; at: number; }
+export interface LearningQuizResult { correct: number; total: number; at: number; passPercent?: number; }
 export interface LearningProgress {
   // Compatibility field: now contains validated completions, never mere visits.
   lessonsRead: Record<number, number>;
@@ -17,8 +20,9 @@ export const initialLearning = (): LearningProgress => ({ lessonsRead: {}, lesso
 export function validScore(correct: number, total: number): boolean {
   return Number.isSafeInteger(total) && total > 0 && Number.isSafeInteger(correct) && correct >= 0 && correct <= total;
 }
-export function passesLearningQuiz(correct: number, total: number): boolean {
-  return validScore(correct, total) && correct * 100 >= total * LEARNING_PASS_PERCENT;
+export function passesLearningQuiz(correct: number, total: number, passPercent = LEARNING_PASS_PERCENT): boolean {
+  return (passPercent === 75 || passPercent === 90 || passPercent === 100)
+    && validScore(correct, total) && correct * 100 >= total * passPercent;
 }
 export function learningLessonQuizIds(bundle: ContentBundle, lesson: Lesson): number[] {
   const ids = [...new Set(lesson.questionIds)];
@@ -48,12 +52,12 @@ export function studyLesson(p: LearningProgress, bundle: ContentBundle, id: numb
   if (!lesson || lesson.questionIds.length !== 0) return p;
   return { ...startLesson(p, id, now), lessonsStudied: { ...p.lessonsStudied, [id]: p.lessonsStudied[id] ?? now }, lessonsRead: { ...p.lessonsRead, [id]: p.lessonsRead[id] ?? now } };
 }
-export function recordLearningQuiz(p: LearningProgress, bundle: ContentBundle, key: string, correct: number, total: number, now: number): LearningProgress {
+export function recordLearningQuiz(p: LearningProgress, bundle: ContentBundle, key: string, correct: number, total: number, now: number, passPercent = learningPassPercent(useSettings.getState().quizLevel)): LearningProgress {
   const ids = assessmentIds(bundle, key);
   if (!validScore(correct, total) || !ids.length || ids.length !== total) return p;
-  const result = { correct, total, at: now };
+  const result = { correct, total, at: now, passPercent };
   const previous = p.quizBest[key];
-  const passed = passesLearningQuiz(correct, total);
+  const passed = passesLearningQuiz(correct, total, passPercent);
   const lessonId = key.startsWith('lesson:') ? Number(key.slice(7)) : null;
   const next = lessonId === null ? p : startLesson(p, lessonId, now);
   return { ...next,
@@ -77,7 +81,7 @@ export function migrateLearning(legacy: Partial<LearningProgress>, bundles: Cont
   for (const [key, result] of Object.entries(legacy.quizResults ?? {})) {
     if (!result || !validScore(result.correct, result.total) || !Number.isFinite(result.at)) continue;
     const bundle = bundles.find((b) => assessmentIds(b, key).length === result.total);
-    if (bundle) next = recordLearningQuiz(next, bundle, key, result.correct, result.total, result.at);
+    if (bundle) next = recordLearningQuiz(next, bundle, key, result.correct, result.total, result.at, result.passPercent ?? LEARNING_PASS_PERCENT);
   }
   return next;
 }
