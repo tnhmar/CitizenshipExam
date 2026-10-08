@@ -1,8 +1,20 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { makeBundle } from '../test-utils/fixtures';
 import { initialLearning, passesLearningQuiz, recordLearningQuiz } from './completion';
 import { learningPassPercent } from './learningLevels';
 import { useSettings } from '../store/settings';
+
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const values = new Map<string, string>();
+  return {
+    __esModule: true,
+    default: {
+      getItem: (key: string) => Promise.resolve(values.get(key) ?? null),
+      setItem: (key: string, value: string) => { values.set(key, value); return Promise.resolve(); },
+      removeItem: (key: string) => { values.delete(key); return Promise.resolve(); },
+    },
+  };
+});
 
 describe('configurable learning quiz target', () => {
   test('defaults to discovery and rejects unknown persisted levels', () => {
